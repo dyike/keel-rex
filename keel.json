@@ -1,0 +1,9 @@
+{
+  "name": "Rex Keel",
+  "appid": "com.dyike.keel.rex",
+  "version": "0.3.2",
+  "binary": "rex-keel",
+  "icon": "assets/rex-icon.png",
+  "icon_mask": "none",
+  "main": "."
+}

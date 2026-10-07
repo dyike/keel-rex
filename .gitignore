@@ -1,0 +1,12 @@
+/dist/
+.DS_Store
+*.test
+__pycache__/
+*.pyc
+/tools/bench/data/
+/tools/bench/out/
+/tools/bench/results.log
+/tools/bench/meta.json
+/tools/bench/memprobe.json
+/tools/bench/report.html
+/tools/bench/winwait

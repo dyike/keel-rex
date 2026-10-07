@@ -1,0 +1,7 @@
+<!-- Source: gorex; Lucide ISC / Simple Icons CC0. Path syntax normalized for Keel SVG rendering. -->
+<svg xmlns="http://www.w3.org/2000/svg" class="lucide lucide-server" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M 4 2 L 20 2 C 21.1045695 2 22 2.8954305 22 4 L 22 8 C 22 9.1045695 21.1045695 10 20 10 L 4 10 C 2.8954305 10 2 9.1045695 2 8 L 2 4 C 2 2.8954305 2.8954305 2 4 2 Z" />
+  <path d="M 4 14 L 20 14 C 21.1045695 14 22 14.8954305 22 16 L 22 20 C 22 21.1045695 21.1045695 22 20 22 L 4 22 C 2.8954305 22 2 21.1045695 2 20 L 2 16 C 2 14.8954305 2.8954305 14 4 14 Z" />
+  <line x1="6" x2="6.01" y1="6" y2="6" />
+  <line x1="6" x2="6.01" y1="18" y2="18" />
+</svg>
