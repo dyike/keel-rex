@@ -86,10 +86,7 @@ func callServer(dir string, req rpcRequest) (rpcResponse, error) {
 }
 func ensureServer(dir string) error {
 	if r, e := callServer(dir, rpcRequest{Op: "hello"}); e == nil {
-		if r.Version != serverProtocol {
-			return fmt.Errorf("session server protocol differs; end sessions explicitly before upgrading")
-		}
-		return nil
+		return checkServerProtocol(dir, r)
 	}
 	if e := os.MkdirAll(dir, 0700); e != nil {
 		return e
@@ -113,12 +110,26 @@ func ensureServer(dir string) error {
 	go cmd.Wait()
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		if _, e = callServer(dir, rpcRequest{Op: "hello"}); e == nil {
-			return nil
+		var r rpcResponse
+		if r, e = callServer(dir, rpcRequest{Op: "hello"}); e == nil {
+			return checkServerProtocol(dir, r)
 		}
 		time.Sleep(30 * time.Millisecond)
 	}
 	return fmt.Errorf("session server did not start: %w", e)
+}
+func checkServerProtocol(dir string, r rpcResponse) error {
+	if r.Version == serverProtocol {
+		return nil
+	}
+	return fmt.Errorf("session server protocol differs (server %d, client %d; PID %d); to end all sessions and clear the saved workspace, run:\n  go run . -end-sessions -state-dir %s\nthen restart the application; to keep existing sessions, use a separate -state-dir", r.Version, serverProtocol, r.PID, shellQuote(dir))
+}
+
+// Shutdown deliberately bypasses the protocol check so an upgraded client
+// can end sessions owned by an older server without opening a window.
+func endSessionServer(dir string) error {
+	_, e := callServer(dir, rpcRequest{Op: "shutdown"})
+	return e
 }
 func runSessionServer(dir string) error {
 	if e := os.MkdirAll(dir, 0700); e != nil {

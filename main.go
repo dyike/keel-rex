@@ -483,9 +483,23 @@ func main() {
 	dir := flag.String("dir", "", "Initial working directory")
 	screenshot := flag.String("screenshot", "", "Render native screenshot and exit")
 	server := flag.Bool("server", false, "Run persistent PTY session service")
+	endSessions := flag.Bool("end-sessions", false, "End all persistent sessions, clear the saved workspace, and stop the session service")
 	stateDir := flag.String("state-dir", "", "Workspace/session data directory")
 	ephemeral := flag.Bool("ephemeral", false, "Use local sessions without persistence")
 	flag.Parse()
+	if *endSessions {
+		if *server || *ephemeral || *snake || *screenshot != "" {
+			log.Fatal("-end-sessions cannot be combined with -server, -ephemeral, -snake, or -screenshot")
+		}
+		if *stateDir == "" {
+			*stateDir = stateDirectory()
+		}
+		if e := endSessionServer(*stateDir); e != nil {
+			log.Fatal(e)
+		}
+		log.Print("all sessions ended; session service stopped")
+		return
+	}
 	if *server {
 		if *stateDir == "" {
 			*stateDir = stateDirectory()

@@ -59,6 +59,20 @@ Git 面板显示当前仓库的状态和 diff，支持暂存、取消暂存、�
 
 目录中保存 `layout.json`、`settings.json`、私有 Unix socket 和服务日志。正常退出恢复进程；机器重启或服务进程结束后，只能按保存布局在原目录创建新 shell。开发构建不会自动结束已有服务；协议不兼容时会提示先明确结束会话。
 
+如果启动时报 `session server protocol differs`，说明后台服务仍在使用旧协议。需要保留旧会话时，可用独立目录启动新版：
+
+```sh
+go run . -state-dir "$HOME/Library/Application Support/Rex Keel Dev-v2"
+```
+
+确认旧会话可以结束后，执行以下命令，再重新运行 `keel run`。该操作会结束旧服务中的所有 shell 和前台程序，并清空保存的工作区布局：
+
+```sh
+go run . -end-sessions
+```
+
+若启动时使用了 `KEEL_REX_DIR` 或 `-state-dir`，结束会话时也应指定同一个目录。
+
 ## 开发与验证
 
 把 `keel-rex` 和 `keel` 放在同一父目录。`go.mod` 的本地替换引用 Keel 已提交的交通灯布局 API，终端依赖由本项目管理。需要 Go 1.26 和 Xcode Command Line Tools。
