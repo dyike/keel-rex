@@ -1,4 +1,4 @@
-// Memprobe measures where keel-rex's memory goes: the fonts main.go loads,
+// Memprobe measures where keel-rex's memory goes: the fonts internal/ui/run.go loads,
 // the alternatives, and one session's VT scrollback. It prints JSON for
 // tools/bench/report.py.
 //

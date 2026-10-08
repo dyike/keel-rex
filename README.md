@@ -5,7 +5,7 @@
 直接打开 `dist/Rex Keel.app`，或在项目目录运行：
 
 ```sh
-go run . -dir /path/to/project
+keel run -- -dir /path/to/project
 ```
 
 ## 使用
@@ -20,7 +20,7 @@ go run . -dir /path/to/project
 
 ⌘ 按钮打开命令面板，模糊搜索所有动作和已打开面板。方向键选择、Enter 执行、Esc 关闭；关闭后键盘焦点回到终端。目录输入支持 `~`，无效路径会显示错误。
 
-终端支持 ANSI 样式、备用屏幕、最多 10000 行历史、中文输入和显示。滚轮查看历史，拖动选择文本，双击选词、三击选行，⌘A 选中当前屏幕，⌘C 复制、⌘V 粘贴。TUI 的鼠标协议收到左右键、修饰键和滚轮；按 Shift 可以改为选择文本。⌘F 查找终端和历史中的文本，再次查找会前进到下一处并循环。
+终端支持 ANSI 样式、备用屏幕、最多 10000 行历史、中文输入和显示。滚轮查看历史，按住鼠标拖选时可用滚轮继续跨屏扩选，双击选词、三击选行，⌘A 选中保留的历史和当前屏幕，⌘C 复制、⌘V 粘贴。TUI 的鼠标协议收到左右键、修饰键和滚轮；按 Shift 可以改为选择文本。⌘F 查找终端和历史中的文本，再次查找会前进到下一处并循环。
 
 Git 面板显示当前仓库的状态和 diff，支持暂存、取消暂存、暂存全部和提交。长路径单行截断，代码按原始行显示，Tab 展开为空格，两个方向均可滚动。提交失败时保留输入；提交只包含已暂存内容。
 
@@ -43,11 +43,53 @@ Git 面板显示当前仓库的状态和 diff，支持暂存、取消暂存、�
 | ⌥⌘Q | 确认结束所有会话并退出 |
 | Ctrl+C / Ctrl+D | 交给前台程序：中断 / EOF |
 
+## 代码结构
+
+UI 和后端分别位于 `internal/ui`、`internal/backend`。UI 对象保存焦点、选区、输入法和绘制缓存，通过 `Session`、`WorkspaceService` 接口操作后端；PTY、仿真器、锁和 Unix socket 由后端对象封装。后端通过订阅通道报告状态变化，UI 在自己的事件循环中安排重绘。
+
+| 位置 / 对象 | 职责 |
+| --- | --- |
+| `main.go` | 解析启动参数，选择桌面或兼容的 `-server` 模式 |
+| `internal/ui` 的 `app`、`terminal` | 工作区、交互、菜单和终端绘制 |
+| `backend.Service` | 创建 / 接回会话、保存布局、查询状态和管理服务 |
+| `backend.Session` | 统一的本地 / 远程会话接口：输入、屏幕、搜索、复制和生命周期 |
+| `backend.Repository` | Git 查询、操作和文件预览 |
+| `backend.HostInspector`、`SettingsStore` | 主机信息读取和设置文件存储 |
+| `cmd/rex-server` | 独立服务入口，构建依赖中不包含 Gio 或 Keel UI |
+
+```mermaid
+flowchart LR
+    Launcher[main.go] --> UI[internal/ui]
+    UI --> Contracts[Session / WorkspaceService 接口]
+    Contracts --> Backend[internal/backend]
+    Server[cmd/rex-server] --> Backend
+    Backend --> PTY[PTY / VT / Unix socket]
+```
+
+Go 使用结构体的方法封装对象，通过接口和组合组织职责。`ui.Options.Service` 可以注入服务实现；UI 测试使用模型替身或真实 PTY，无需访问后端私有字段。
+
+`go run .` 继续自动启动同一可执行文件的 `-server` 模式。需要独立服务时，构建服务并指定其路径；目录参数继续决定会话和布局存放位置：
+
+```sh
+go build -o dist/rex-server ./cmd/rex-server
+KEEL_REX_SERVER="$PWD/dist/rex-server" go run . -dir /path/to/project
+```
+
+也可以先手动运行服务，再让桌面连接同一个目录：
+
+```sh
+./dist/rex-server -state-dir /tmp/rex-separated-state
+# 在另一个终端运行：
+go run . -state-dir /tmp/rex-separated-state
+```
+
+本次拆分保持会话协议和布局格式，已有服务可继续连接。
+
 ## 会话恢复
 
 点击左上角主机按钮可查看型号、芯片、内存、系统、用户，以及会话服务器的 PID、运行时长和会话统计。浮层打开时每秒刷新状态；会话总数来自服务器，包含未显示在当前窗口中的会话。旧版服务器继续保留现有会话，浮层标注当前窗口计数；服务器下次启动后提供总数。使用 `-ephemeral` 时显示本地会话状态，并说明退出 App 会结束会话。
 
-关闭窗口或正常退出 App 会保存标签顺序、名称、分屏比例、焦点和放大状态。PTY 和终端仿真运行在同一可执行文件启动的后台 `-server` 进程；重新打开会接回原来的 shell、环境变量和正在运行的备用屏幕程序。
+关闭窗口或正常退出 App 会保存标签顺序、名称、分屏比例、焦点和放大状态。PTY 和终端仿真运行在后台服务进程中，默认由同一可执行文件的 `-server` 模式启动，也可使用独立的 `rex-server`；重新打开会接回原来的 shell、环境变量和正在运行的备用屏幕程序。
 
 关闭面板或标签会结束对应会话，前台有程序运行时先确认。需要全部结束时使用 `Quit and end all sessions`。结束后的面板提供 Restart；服务断开也可重建 shell。
 
@@ -75,14 +117,19 @@ go run . -end-sessions
 
 ## 开发与验证
 
-把 `keel-rex` 和 `keel` 放在同一父目录。`go.mod` 的本地替换引用 Keel 已提交的交通灯布局 API，终端依赖由本项目管理。需要 Go 1.26 和 Xcode Command Line Tools。
+需要 Go 1.26 和 Xcode Command Line Tools，Keel 和终端依赖版本由 `go.mod` 管理。macOS 的 `keel run` 使用带图标资源的临时应用包，退出时清理；热重载和 `-watch=false` 使用同一启动方式。
+
+`go tool keel` 使用 `go.mod` 固定的 CLI 版本。本地修改 Keel CLI 后，在 Keel 仓库执行 `go install ./cmd/keel`，再在本项目运行 `keel run`。
 
 ```sh
 go test -race ./...
 go vet ./...
 python3 tools/qa_workspace.py
+REX_QA_STANDALONE_SERVER=1 REX_QA_DIR=/tmp/rex-qa python3 tools/qa_workspace.py
 go tool keel build -target darwin -arch arm64 -o dist
 ```
+
+`REX_QA_STANDALONE_SERVER=1` 让回归脚本构建并使用独立服务；`REX_QA_DIR` 指定截图输出目录。UI 回归测试位于 `internal/ui`，PTY、通信和性能测试位于 `internal/backend`；依赖回归测试会阻止独立服务引入 UI 包。
 
 回归脚本使用 Keel 的内存窗口，在隔离目录启动会话服务和临时 Git 仓库，结束后清理。它检查命令面板与焦点、中文、分屏、导航、关闭确认、历史查找、实际 Git 暂存和提交，以及关闭再打开的恢复。不会显示 AppKit 测试窗口，也不操作你正在使用的会话或仓库。
 

@@ -5,6 +5,11 @@ root=Path(__file__).resolve().parents[1]
 run=tempfile.TemporaryDirectory(prefix='keel-rex-qa-',dir='/tmp')
 work=Path(run.name)
 binary=work/'rex';state=work/'state';sock=str(work/'ui.sock')
+artifacts=Path(os.environ.get('REX_QA_DIR', str(root/'evidence')))
+if os.environ.get('REX_QA_STANDALONE_SERVER'):
+ server_binary=work/'rex-server'
+ subprocess.run(['go','build','-o',str(server_binary),'./cmd/rex-server'],cwd=root,check=True)
+ os.environ['KEEL_REX_SERVER']=str(server_binary)
 subprocess.run(['go','build','-o',str(binary),'.'],cwd=root,check=True)
 def launch():
  env=dict(os.environ,KEEL_HEADLESS='1',KEEL_AUTOMATION=sock)
@@ -26,8 +31,8 @@ def press(k):return rpc('press',key=k)
 def command(query):
  press('mod+shift+p');rpc('type',text=query);return press('enter')
 def screenshot(name):
- (root/'evidence').mkdir(exist_ok=True)
- open(root/'evidence'/ (name+'.png'),'wb').write(base64.b64decode(rpc('screenshot')))
+ artifacts.mkdir(parents=True,exist_ok=True)
+ open(artifacts/(name+'.png'),'wb').write(base64.b64decode(rpc('screenshot')))
 def wait_enabled(text):
  for _ in range(100):
   r=rpc('snapshot')
