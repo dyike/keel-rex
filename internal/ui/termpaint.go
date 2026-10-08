@@ -194,7 +194,7 @@ func (p painter) cellRun(rp *rowPaint, cells []uv.Cell, x, y, cw, size float32, 
 	}
 	sh := theme.Material.Shaper
 	px := size * p.scale
-	sh.LayoutString(text.Parameters{Font: font.Font{Typeface: "Menlo, " + theme.EmojiFace, Weight: weight}, PxPerEm: fixed.Int26_6(px * 64), MaxWidth: 1 << 24}, b.String())
+	sh.LayoutString(text.Parameters{Font: font.Font{Typeface: terminalFontFace + ", " + theme.EmojiFace, Weight: weight}, PxPerEm: fixed.Int26_6(px * 64), MaxWidth: 1 << 24}, b.String())
 	gs := rp.glyph[:0]
 	for g, ok := sh.NextGlyph(); ok; g, ok = sh.NextGlyph() {
 		gs = append(gs, g)

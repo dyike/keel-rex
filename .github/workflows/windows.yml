@@ -1,0 +1,21 @@
+name: Windows
+
+on: [push, pull_request]
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build desktop and session service
+        run: |
+          go build -o rex.exe .
+          go build -o rex-server.exe ./cmd/rex-server
+      - name: Exercise ConPTY, detached service, index-only commits and locking
+        run: go test ./internal/backend -run 'TestWindows|TestSessionServerLock|TestShellNames|TestRepositorySeparatesIndex' -count=1 -timeout=120s
+      - name: Check commit editor focus
+        run: go test ./internal/ui -run TestGitCommitInputKeepsFocusDuringRefresh -count=1

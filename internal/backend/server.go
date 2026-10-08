@@ -13,7 +13,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -111,34 +110,13 @@ func ensureServer(dir string) error {
 		return e
 	}
 	defer log.Close()
-	// The server tells it listens by writing to a pipe, its fd 3, rather
-	// than being polled for.
-	ready, readyW, e := os.Pipe()
-	if e != nil {
-		return e
-	}
-	defer ready.Close()
 	if configured := os.Getenv("KEEL_REX_SERVER"); configured != "" {
 		exe = configured
 	}
 	cmd := exec.Command(exe, "-server", "-state-dir", dir)
-	cmd.Stdout = log
-	cmd.Stderr = log
-	cmd.ExtraFiles = []*os.File{readyW}
-	cmd.Env = append(os.Environ(), readyEnv+"=3")
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-	e = cmd.Start()
-	readyW.Close()
-	if e != nil {
+	cmd.Stdout, cmd.Stderr = log, log
+	if e = startSessionServer(cmd); e != nil {
 		return e
-	}
-	go cmd.Wait()
-	ready.SetReadDeadline(time.Now().Add(5 * time.Second))
-	var b [1]byte
-	if n, _ := ready.Read(b[:]); n == 1 {
-		if r, e := callServer(dir, rpcRequest{Op: "hello"}); e == nil {
-			return checkServerProtocol(dir, r)
-		}
 	}
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
@@ -173,7 +151,7 @@ func runSessionServer(dir string) error {
 		return e
 	}
 	defer lock.Close()
-	if e = syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); e != nil {
+	if e = lockSessionServer(lock); e != nil {
 		return fmt.Errorf("session server already running: %w", e)
 	}
 	path := socketPath(dir)
@@ -185,13 +163,7 @@ func runSessionServer(dir string) error {
 	defer listener.Close()
 	defer os.Remove(path)
 	os.Chmod(path, 0600)
-	if os.Getenv(readyEnv) == "3" {
-		os.Unsetenv(readyEnv) // not for the shells
-		if f := os.NewFile(3, "ready"); f != nil {
-			f.Write([]byte{1})
-			f.Close()
-		}
-	}
+	notifySessionServerReady()
 	srv := &sessionServer{sessions: map[string]*session{}, dir: dir, listener: listener, started: time.Now()}
 	for {
 		conn, e := listener.Accept()

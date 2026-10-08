@@ -37,9 +37,9 @@ func (p painter) rect(x, y, w, h, r float32, c color.NRGBA) {
 }
 func (p painter) line(x, y, w, h float32, c color.NRGBA) { p.rect(x, y, w, h, 0, c) }
 func (p painter) label(s string, x, y, size float32, c color.NRGBA, mono, bold bool) float32 {
-	fam := font.Typeface("Helvetica Neue")
+	fam := uiFontFace
 	if mono {
-		fam = "Menlo"
+		fam = terminalFontFace
 	}
 	fam += ", " + theme.EmojiFace
 	weight := font.Normal

@@ -5,7 +5,6 @@ import (
 	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/vt"
-	"github.com/creack/pty"
 	"io"
 	"net/url"
 	"os"
@@ -13,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -42,7 +40,7 @@ type session struct {
 	inputDone                     chan struct{}
 	mu                            sync.Mutex
 	emu                           *vt.Emulator
-	master                        *os.File
+	master                        terminalPTY
 	cmd                           *exec.Cmd
 	cwd, title                    string
 	cols, rows                    int
@@ -56,10 +54,8 @@ func newSession(dir string, command ...string) (*session, error) {
 
 func newSessionWithOptions(options SessionOptions) (*session, error) {
 	dir, command := options.Directory, options.Command
-	shell := os.Getenv("SHELL")
-	if shell == "" {
-		shell = "/bin/zsh"
-	}
+	defaultCommand := shellCommand()
+	shell := defaultCommand[0]
 	s := &session{cwd: dir, title: filepath.Base(shell), cols: 80, rows: 24, cursorVisible: true, revision: 1, done: make(chan struct{}), inputDone: make(chan struct{})}
 	s.emu = vt.NewEmulator(80, 24)
 	// History is kept to 10000 lines, and to 8 MB packed: richly colored
@@ -74,7 +70,7 @@ func newSessionWithOptions(options SessionOptions) (*session, error) {
 	s.emu.SetDefaultBackgroundColor(rgb(0xf4f4f4))
 	s.emu.SetCallbacks(vt.Callbacks{Bell: func() { s.bells++ }, Title: func(v string) { s.title = v }, WorkingDirectory: func(v string) {
 		if parsed, e := url.Parse(v); e == nil && parsed.Scheme == "file" && parsed.Path != "" {
-			s.cwd = parsed.Path
+			s.cwd = terminalDirectory(parsed.Path)
 		}
 	}, CursorVisibility: func(v bool) { s.cursorVisible = v }, EnableMode: func(m ansi.Mode) {
 		if mouseMode(m) {
@@ -88,15 +84,15 @@ func newSessionWithOptions(options SessionOptions) (*session, error) {
 	if len(command) > 0 {
 		s.cmd = exec.Command(command[0], command[1:]...)
 	} else {
-		s.cmd = exec.Command(shell, "-l")
+		s.cmd = exec.Command(defaultCommand[0], defaultCommand[1:]...)
 	}
 	// The command's identity is available before the first foreground query;
 	// an explicit bash session must not initially inherit SHELL's zsh label.
-	s.program = strings.TrimPrefix(filepath.Base(s.cmd.Path), "-")
+	s.program = programName(s.cmd.Path)
 	s.title = s.program
 	s.cmd.Dir = dir
 	s.cmd.Env = append(os.Environ(), "TERM=xterm-256color", "COLORTERM=truecolor", "TERM_PROGRAM=RexKeel", "TERM_PROGRAM_VERSION=0.3.0")
-	m, e := pty.StartWithSize(s.cmd, &pty.Winsize{Cols: 80, Rows: 24})
+	m, e := startTerminal(s.cmd, 80, 24)
 	if e != nil {
 		s.emu.Close()
 		return nil, e
@@ -158,7 +154,7 @@ func newSessionWithOptions(options SessionOptions) (*session, error) {
 				batch = nil
 			}
 		}
-		e := s.cmd.Wait()
+		e := m.Wait()
 		s.mu.Lock()
 		s.exited = true
 		s.revision++
@@ -233,7 +229,7 @@ func (s *session) resize(cols, rows int) {
 	s.cols, s.rows = cols, rows
 	s.emu.Resize(cols, rows)
 	s.revision++
-	pty.Setsize(s.master, &pty.Winsize{Cols: uint16(cols), Rows: uint16(rows)})
+	s.master.Resize(cols, rows)
 	s.changed()
 }
 func (s *session) close() {
@@ -250,14 +246,17 @@ func (s *session) close() {
 	s.closed = true
 	s.emu.InputPipe().(io.Closer).Close()
 	s.input.close()
-	s.master.Close()
-	pid := s.cmd.Process.Pid
+	m := s.master
 	running := !s.exited
 	s.mu.Unlock()
-	if running {
-		syscall.Kill(-pid, syscall.SIGHUP)
-	}
-	go func() { <-s.inputDone; s.mu.Lock(); s.emu.Close(); s.mu.Unlock() }()
+	// ConPTY shutdown waits for its output to drain. Keep it outside the
+	// emulator lock and UI callback so the reader can finish draining.
+	go func() {
+		if running {
+			m.Hangup()
+		}
+		m.Close()
+	}()
 	go func() {
 		select {
 		case <-s.done:
@@ -266,7 +265,7 @@ func (s *session) close() {
 			if !running {
 				return
 			}
-			syscall.Kill(-pid, syscall.SIGKILL)
+			m.Kill()
 		}
 	}()
 }

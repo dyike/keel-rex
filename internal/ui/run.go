@@ -45,11 +45,7 @@ func Run(options Options) {
 	// Chinese in are kept. Parsing them and making the shaper takes tens of
 	// milliseconds, which go on beside starting the session server and
 	// opening the window.
-	fonts := []string{"/System/Library/Fonts/Menlo.ttc", "/System/Library/Fonts/HelveticaNeue.ttc"}
-	cjk, _ := filepath.Glob("/System/Library/AssetsV2/com_apple_MobileAsset_Font*/*.asset/AssetData/PingFang.ttc")
-	if len(cjk) > 0 {
-		fonts = append(fonts, cjk[0])
-	}
+	fonts := platformFontFiles()
 	fontSet := make(chan *theme.FontSet, 1)
 	go func() {
 		set, e := theme.PrepareFontFiles(func(f font.Font) bool {
@@ -62,7 +58,7 @@ func Run(options Options) {
 		fontSet <- set
 	}()
 	useFonts := func() { (<-fontSet).Use() }
-	theme.Material.Face = "Helvetica Neue"
+	theme.Material.Face = uiFontFace
 	mark("fonts")
 	var a *app
 	var workspace chan error

@@ -1,12 +1,14 @@
 # Rex / Keel 原生终端
 
-`github.com/dyike/keel-rex` 是使用 Keel / Gio 构建的 macOS 终端 App。0.3.x 参考 [GoRex](https://github.com/egoist/gorex) 补齐工作区恢复、命令搜索、标签操作和键盘导航，保留真实 PTY、Git 操作与原生 NSWindow 交通灯。
+`github.com/dyike/keel-rex` 是使用 Keel / Gio 构建的原生终端 App，提供 macOS PTY 和 Windows ConPTY 后端。0.3.x 参考 [GoRex](https://github.com/egoist/gorex) 补齐工作区恢复、命令搜索、标签操作和键盘导航，保留真实终端会话、Git 操作与 macOS 原生 NSWindow 交通灯。
 
 直接打开 `dist/Rex Keel.app`，或在项目目录运行：
 
 ```sh
 keel run -- -dir /path/to/project
 ```
+
+Windows 在 PowerShell 中运行 `go run .`。需要 Go 1.26 和 [Windows 10 1809 或更新版本](https://learn.microsoft.com/en-us/windows/console/createpseudoconsole)；默认使用 `pwsh.exe`，未安装时依次选择 `powershell.exe`、`COMSPEC` 和 `cmd.exe`。后台服务使用 Windows 文件锁和独立进程，终端使用 ConPTY；界面加载 Segoe UI、Consolas 和可用的微软雅黑，缺失字体时使用 Go 字体。macOS 继续使用 `SHELL` 指定的登录 shell。
 
 ## 使用
 
@@ -119,7 +121,7 @@ go run . -end-sessions
 
 ## 开发与验证
 
-需要 Go 1.26 和 Xcode Command Line Tools，Keel 和终端依赖版本由 `go.mod` 管理。macOS 的 `keel run` 使用带图标资源的临时应用包，退出时清理；热重载和 `-watch=false` 使用同一启动方式。
+需要 Go 1.26；macOS 还需要 Xcode Command Line Tools。Keel 和终端依赖版本由 `go.mod` 管理。macOS 的 `keel run` 使用带图标资源的临时应用包，退出时清理；热重载和 `-watch=false` 使用同一启动方式。
 
 `go tool keel` 使用 `go.mod` 固定的 CLI 版本。本地修改 Keel CLI 后，在 Keel 仓库执行 `go install ./cmd/keel`，再在本项目运行 `keel run`。
 
@@ -132,6 +134,13 @@ go tool keel build -target darwin -arch arm64 -o dist
 ```
 
 `REX_QA_STANDALONE_SERVER=1` 让回归脚本构建并使用独立服务；`REX_QA_DIR` 指定截图输出目录。UI 回归测试位于 `internal/ui`，PTY、通信和性能测试位于 `internal/backend`；依赖回归测试会阻止独立服务引入 UI 包。
+
+`tools/qa_workspace.py` 和涉及 `/bin/zsh` 的测试在 macOS 运行。Windows CI 构建桌面与独立服务，并运行 ConPTY 输入、尺寸调整、中文输出、退出状态、后台服务重连、文件锁和 Git 提交测试：
+
+```powershell
+go test ./internal/backend -run 'TestWindows|TestSessionServerLock|TestShellNames|TestRepositorySeparatesIndex' -count=1 -timeout=120s
+go test ./internal/ui -run TestGitCommitInputKeepsFocusDuringRefresh -count=1
+```
 
 回归脚本使用 Keel 的内存窗口，在隔离目录启动会话服务和临时 Git 仓库，结束后清理。它检查实际 shell 名称、命令面板与焦点、中文、分屏、导航、关闭确认、历史查找，以及关闭再打开的恢复。Git 检查使用真实仓库，覆盖暂存与取消暂存、工作区和暂存区 diff、只提交暂存内容，以及提交失败后保留输入并重试。不会显示 AppKit 测试窗口，也不操作你正在使用的会话或仓库。
 

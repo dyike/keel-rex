@@ -2,7 +2,6 @@ package backend
 
 import (
 	"io"
-	"os"
 	"sync"
 )
 
@@ -13,10 +12,10 @@ type ptyInput struct {
 	ready  *sync.Cond
 	queue  [][]byte
 	closed bool
-	file   *os.File
+	file   io.Writer
 }
 
-func newPTYInput(f *os.File) *ptyInput {
+func newPTYInput(f io.Writer) *ptyInput {
 	p := &ptyInput{file: f}
 	p.ready = sync.NewCond(&p.mu)
 	return p
