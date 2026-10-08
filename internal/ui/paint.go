@@ -128,12 +128,12 @@ func (p painter) programStack(tab *workspace, x, y float32) {
 	}
 	icons = append([]string{front}, icons...)
 	for i := len(icons) - 1; i >= 0; i-- {
-		xx := x + float32(i)*5
+		xx := x + 1 + float32(i)*5
 		yy, w, h := y, float32(24), float32(20)
 		if i > 0 {
 			yy, w, h = y+1, 22, 18
 		}
-		p.rect(xx, yy+.75, w, h, 5, color.NRGBA{A: 28})
-		p.programTile(icons[i], xx, yy, w, h)
+		angles := [...]float32{-.055, .035, .09}
+		p.tiltedProgramTile(icons[i], xx, yy, w, h, angles[i])
 	}
 }

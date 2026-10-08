@@ -28,7 +28,7 @@ func sessionActivity(s *session) (open, running bool) {
 		exited, program = s.frame.Exited, s.frame.Program
 	}
 	open = !exited && !closed
-	running = open && program != "" && program != "zsh" && program != "bash" && program != "fish" && program != "sh" && program != "-zsh" && program != "-bash"
+	running = open && program != "" && !IsShellProgram(program)
 	return
 }
 

@@ -169,17 +169,23 @@ func (a *app) restartFocused() {
 
 func programTitle(s backend.Session) string {
 	state := s.State()
-	program, title, exited := state.Program, state.Title, state.Exited
+	program, title, exited := strings.TrimPrefix(filepath.Base(state.Program), "-"), state.Title, state.Exited
 	if exited {
 		return "Session ended"
 	}
-	if program == "" {
-		program = filepath.Base(title)
+	if state.Program == "" {
+		program = "Shell"
+		if title != "" {
+			program = strings.TrimPrefix(filepath.Base(title), "-")
+		}
 		if strings.Contains(program, ":") {
 			program = "Shell"
 		}
 	}
-	names := map[string]string{"zsh": "Shell", "bash": "Shell", "fish": "Fish", "sh": "Shell", "codex": "Codex", "claude": "Claude Code", "node": "Node", "python": "Python", "python3": "Python", "bun": "Bun", "lazygit": "Git Changes", "vim": "Vim", "nvim": "Neovim", "ssh": "SSH", "htop": "htop"}
+	if backend.IsShellProgram(program) {
+		return program
+	}
+	names := map[string]string{"codex": "Codex", "claude": "Claude Code", "node": "Node", "python": "Python", "python3": "Python", "bun": "Bun", "lazygit": "Git Changes", "vim": "Vim", "nvim": "Neovim", "ssh": "SSH", "htop": "htop"}
 	if program == "ssh" && strings.HasPrefix(title, "ssh ") {
 		return "SSH " + strings.TrimPrefix(title, "ssh ")
 	}
@@ -227,7 +233,7 @@ func (a *app) checkActivity() bool {
 			f := p.term.session.Snapshot(0, 0)
 			visible := p == a.focused && (a.window == nil || a.window.Focused())
 			attention := p.attention
-			if !visible && (f.Bells > p.seenBells || p.lastProgram != "" && p.lastProgram != f.Program && programTitle(p.term.session) == "Shell") {
+			if !visible && (f.Bells > p.seenBells || p.lastProgram != "" && !backend.IsShellProgram(p.lastProgram) && p.lastProgram != f.Program && backend.IsShellProgram(f.Program)) {
 				if !p.attention {
 					a.notifyAttention(tab, p, "A background session needs attention")
 				}
@@ -237,6 +243,7 @@ func (a *app) checkActivity() bool {
 				p.seenBells = f.Bells
 				p.attention = false
 			}
+			changed = changed || p.lastProgram != f.Program
 			p.lastProgram = f.Program
 			if busy := a.busy(p); busy != p.wasBusy || attention != p.attention {
 				p.wasBusy = busy
@@ -255,11 +262,7 @@ func (a *app) tabLabel(t *workspace) string {
 		return t.title
 	}
 	if p.term != nil {
-		title := programTitle(p.term.session)
-		if title == "Shell" {
-			return filepath.Base(p.term.session.Directory())
-		}
-		return title
+		return programTitle(p.term.session) + " " + shortPath(p.term.session.Directory())
 	}
 	return t.title
 }
@@ -268,7 +271,7 @@ func paneRunning(p *pane) bool {
 		return false
 	}
 	state := p.term.session.State()
-	return !state.Exited && state.Program != "" && state.Program != "zsh" && state.Program != "bash" && state.Program != "fish" && state.Program != "sh"
+	return !state.Exited && state.Program != "" && !backend.IsShellProgram(state.Program)
 }
 func (a *app) requestClosePane(p *pane) {
 	if paneRunning(p) {

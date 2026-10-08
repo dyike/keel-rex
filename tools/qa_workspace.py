@@ -40,7 +40,10 @@ def wait_enabled(text):
   time.sleep(.05)
  raise AssertionError('Not enabled: '+text)
 try:
- print('initial tabs',len(match(rpc('snapshot'),'Terminal tab')))
+ initial=rpc('snapshot');print('initial tabs',len(match(initial,'Terminal tab')))
+ shell=Path(os.environ.get('SHELL','/bin/zsh')).name
+ assert match(initial,shell+' · '), 'Missing actual shell name'
+ print('PASS actual shell name in pane headers')
  press('mod+shift+p');press('esc');rpc('type',text="printf 'FOCUS_%s 中文验证\\n' READY");press('enter');rpc('wait_for',text='FOCUS_READY');print('PASS Escape returns focus and Unicode input')
  press('mod+t');press('mod+shift+r');rpc('type',text='研发工作区',clear=True);r=press('enter');assert match(r,'研发工作区');print('PASS rename')
  r=press('mod+d');assert len(match(r,'Pane header'))==2
@@ -68,6 +71,33 @@ try:
  press('mod+o');rpc('type',text=tmp,clear=True);press('enter');command('open git changes');rpc('wait_for',text='Git file change.go');r=rpc('click',text='Stage');wait_enabled('Unstage');status=subprocess.check_output(['git','-C',tmp,'status','--porcelain']).decode();assert status.startswith('A '),status
  rpc('click',text='Unstage');wait_enabled('Stage');time.sleep(.2);assert subprocess.check_output(['git','-C',tmp,'status','--porcelain']).decode().startswith('??')
  wait_enabled('Stage all');rpc('click',text='Stage all');wait_enabled('Unstage');rpc('click',text='Commit…');r=rpc('snapshot');box=next(e for e in r['elements'] if e['role']=='textbox' and e['name']=='Commit message');rpc('type',ref=box['ref'],text='Verify real Git commit');wait_enabled('Create commit');rpc('click',text='Create commit');rpc('wait_for',text='Working tree clean');assert subprocess.check_output(['git','-C',tmp,'log','-1','--format=%s']).decode().strip()=='Verify real Git commit';print('PASS real Git stage / unstage / commit')
+ # A file can appear in both groups; selecting each group must show its own diff.
+ open(tmp+'/change.go','w').write('package example\n// INDEX_ONLY\n')
+ rpc('wait_for',text='Git file change.go');rpc('click',text='Git file change.go');wait_enabled('Stage');rpc('click',text='Stage');rpc('wait_for',text='Git staged file change.go')
+ open(tmp+'/change.go','w').write('package example\n// WORKTREE_ONLY\n')
+ rpc('wait_for',text='Git file change.go');rpc('click',text='Git file change.go');rpc('wait_for',text='+// WORKTREE_ONLY')
+ r=rpc('snapshot');assert match(r,'Working tree diff') and not match(r,'+// INDEX_ONLY')
+ rpc('click',text='Git staged file change.go');rpc('wait_for',text='+// INDEX_ONLY')
+ r=rpc('snapshot');assert match(r,'Staged diff') and not match(r,'+// WORKTREE_ONLY')
+ screenshot('gorex-git-mixed');print('PASS separate index and working tree diffs')
+ # Commit hooks must run; failure preserves the message and the staged index.
+ hooks=Path(tmp)/'.git'/'hooks';hooks.mkdir(exist_ok=True)
+ subprocess.run(['git','-C',tmp,'config','core.hooksPath',str(hooks)],check=True)
+ hook=hooks/'pre-commit';hook.write_text('#!/bin/sh\necho hook-blocked >&2\nexit 1\n');hook.chmod(0o700)
+ wait_enabled('Commit…');rpc('click',text='Commit…');rpc('type',text='Keep after hook failure',ref=next(e['ref'] for e in rpc('snapshot')['elements'] if e.get('name')=='Commit message'))
+ wait_enabled('Create commit');rpc('click',text='Create commit');rpc('wait_for',text='hook-blocked')
+ r=rpc('snapshot');assert any(e.get('name')=='Commit message' and e.get('value')=='Keep after hook failure' for e in r['elements'])
+ assert subprocess.check_output(['git','-C',tmp,'show','HEAD:change.go']).decode().startswith('package example\n\t// 中文')
+ hook.unlink();wait_enabled('Create commit');rpc('click',text='Create commit');rpc('wait_for',text='Working tree diff')
+ assert subprocess.check_output(['git','-C',tmp,'show','HEAD:change.go']).decode()=='package example\n// INDEX_ONLY\n'
+ assert Path(tmp+'/change.go').read_text()=='package example\n// WORKTREE_ONLY\n'
+ print('PASS failed commit preserves message; successful commit includes only staged content')
+ # Bulk unstage restores the index while retaining working and untracked files.
+ open(tmp+'/new.txt','w').write('KEEP_UNTRACKED\n')
+ rpc('wait_for',text='Git file new.txt');wait_enabled('Stage all');rpc('click',text='Stage all');wait_enabled('Unstage all');rpc('click',text='Unstage all');wait_enabled('Stage all')
+ assert not subprocess.check_output(['git','-C',tmp,'diff','--cached'])
+ assert Path(tmp+'/new.txt').read_text()=='KEEP_UNTRACKED\n' and 'WORKTREE_ONLY' in Path(tmp+'/change.go').read_text()
+ print('PASS bulk unstage retains working files')
  command('appearance light');screenshot('gorex-light');r=rpc('snapshot');print('final tabs',len(match(r,'Terminal tab')))
  # Save workspace and daemon PID, then close only the UI.
  time.sleep(1);rpc('close');print('PASS window closes without ending sessions')

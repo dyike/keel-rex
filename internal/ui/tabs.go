@@ -18,7 +18,7 @@ func (a *app) renderTabs(cx *el.Context, root *el.DivEl, w float32) {
 		return
 	}
 	gap := min(float32(2), width/float32(count)*.1)
-	rowWidth := min(max(float32(0), width-6), float32(count)*160+float32(count-1)*gap)
+	rowWidth := min(max(float32(0), width-6), float32(count)*240+float32(count-1)*gap)
 	tabWidth := max(float32(0), (rowWidth-float32(count-1)*gap)/float32(count))
 	padding := min(float32(8), max(float32(0), (tabWidth-16)/2))
 	contentGap := min(float32(8), max(float32(0), (tabWidth-40)/4))
@@ -51,9 +51,9 @@ func (a *app) renderTabs(cx *el.Context, root *el.DivEl, w float32) {
 			}
 		})
 		if tabWidth >= 64 {
-			iconWidth := float32(24)
+			iconWidth := float32(26)
 			if tabWidth >= 96 {
-				iconWidth = 34
+				iconWidth = 38
 			}
 			item.Child(el.Widget(core.Func(func(gtx core.C) core.D {
 				p := painter{gtx, gtx.Metric.PxPerDp}
@@ -67,12 +67,12 @@ func (a *app) renderTabs(cx *el.Context, root *el.DivEl, w float32) {
 							icon = programIcon(tab.focus.term.session)
 						}
 					}
-					p.programTile(icon, 0, 4, 24, 20)
+					p.tiltedProgramTile(icon, 1, 4, 24, 20, -.055)
 				}
 				return core.D{Size: image.Pt(gtx.Dp(unit.Dp(iconWidth)), gtx.Dp(28))}
 			})).NoShrink())
 		}
-		label := el.Text(a.tabLabel(tab)).TextSize(12).Bold().TextColor(c.muted).MaxLines(1).Grow().W(el.Dp(0))
+		label := el.Text(a.tabLabel(tab)).TextSize(12.5).Bold().TextColor(c.muted).MaxLines(1).Grow().W(el.Dp(0))
 		if index == a.active {
 			label.TextColor(c.text)
 		}

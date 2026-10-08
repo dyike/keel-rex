@@ -168,11 +168,19 @@ func (p painter) programTile(name string, x, y, w, h float32) {
 	case "remote":
 		bg, fg = rgb(0x5b4bd6), rgb(0xffffff)
 	}
-	p.rect(x-.7, y-.7, w+1.4, h+1.4, 5.2, theme.Border)
+	p.rect(x-1.1, y-1.1, w+2.2, h+2.2, 5.6, theme.Border)
+	p.rect(x-.65, y-.65, w+1.3, h+1.3, 5.1, color.NRGBA{R: 255, G: 255, B: 255, A: 225})
 	p.rect(x, y, w, h, 4.5, bg)
 	p.rect(x+3, y+1.1, w-6, .6, .3, color.NRGBA{R: 255, G: 255, B: 255, A: 46})
 	size := min(float32(11), min(w, h)*.72)
 	p.glyph(glyph, x+(w-size)/2, y+(h-size)/2, size, fg)
+}
+
+func (p painter) tiltedProgramTile(name string, x, y, w, h, angle float32) {
+	center := f32.Pt((x+w/2)*p.scale, (y+h/2)*p.scale)
+	defer op.Affine(f32.Affine2D{}.Rotate(center, angle)).Push(p.gtx.Ops).Pop()
+	p.rect(x-.5, y+1, w+1, h+1, 5.5, color.NRGBA{A: 30})
+	p.programTile(name, x, y, w, h)
 }
 func (p painter) symbol(name string, x, y, w, h float32) {
 	switch name {

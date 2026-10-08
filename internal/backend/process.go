@@ -29,10 +29,7 @@ func (s *session) refreshProgram() {
 	if e != nil {
 		return
 	}
-	name := strings.TrimSpace(string(out))
-	if i := strings.LastIndex(name, "/"); i >= 0 {
-		name = name[i+1:]
-	}
+	name := strings.TrimPrefix(filepath.Base(strings.TrimSpace(string(out))), "-")
 	if runtimeProgramName(name) {
 		if command, err := exec.Command("ps", "-p", strconv.Itoa(fg), "-o", "args=").Output(); err == nil {
 			name = identifyCLI(name, strings.Fields(string(command)))
@@ -55,6 +52,15 @@ func (s *session) refreshProgram() {
 		s.cwd = dir
 	}
 	s.mu.Unlock()
+}
+
+// IsShellProgram recognizes idle shells, including login-shell process names.
+func IsShellProgram(name string) bool {
+	switch strings.TrimPrefix(filepath.Base(name), "-") {
+	case "zsh", "bash", "fish", "sh", "dash", "ksh", "csh", "tcsh", "nu":
+		return true
+	}
+	return false
 }
 
 func sshDestination(args []string) string {

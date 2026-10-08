@@ -41,8 +41,8 @@ func TestGitPanelVisualFixture(t *testing.T) {
 		t.Fatal(err)
 	}
 	g := &gitState{branch: "main", selected: "go.mod", files: []gitFile{
-		{" M", "go.mod"}, {" M", "go.sum"}, {" M", "ui/window/README.zh-CN.md"},
-		{" M", "ui/window/titlebar_darwin.go"}, {"??", "examples/rex/assets/very-long-filename.png"},
+		{Status: " M", Path: "go.mod"}, {Status: " M", Path: "go.sum"}, {Status: " M", Path: "ui/window/README.zh-CN.md"},
+		{Status: " M", Path: "ui/window/titlebar_darwin.go"}, {Status: "??", Path: "examples/rex/assets/very-long-filename.png"},
 	}, diff: "diff --git a/go.mod b/go.mod\n@@ -25,11 +30,22 @@ require (\n \trequire (\n \tgithub.com/godbus/dbus/v5 v5.2.2\n+\tgithub.com/charmbracelet/colorprofile v0.4.2 // indirect\n-\tgithub.com/charmbracelet/colorprofile v0.4.1 // indirect\n \t" + strings.Repeat("long_source_path/", 10) + "module\n\n )"}
 	for _, width := range []int{740, 360} {
 		root := el.Root(el.ViewFunc(func(cx *el.Context) el.Element {

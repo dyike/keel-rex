@@ -90,6 +90,10 @@ func newSessionWithOptions(options SessionOptions) (*session, error) {
 	} else {
 		s.cmd = exec.Command(shell, "-l")
 	}
+	// The command's identity is available before the first foreground query;
+	// an explicit bash session must not initially inherit SHELL's zsh label.
+	s.program = strings.TrimPrefix(filepath.Base(s.cmd.Path), "-")
+	s.title = s.program
 	s.cmd.Dir = dir
 	s.cmd.Env = append(os.Environ(), "TERM=xterm-256color", "COLORTERM=truecolor", "TERM_PROGRAM=RexKeel", "TERM_PROGRAM_VERSION=0.3.0")
 	m, e := pty.StartWithSize(s.cmd, &pty.Winsize{Cols: 80, Rows: 24})

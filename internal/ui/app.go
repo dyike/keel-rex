@@ -409,7 +409,7 @@ func (a *app) pane(cx *el.Context, p *pane, x, y, w, h float32) el.Element {
 		pp := painter{gtx, gtx.Metric.PxPerDp}
 		pp.glyph(icon, 1.75, 1.75, 14.5, colors.text)
 		return core.D{Size: image.Pt(gtx.Dp(18), gtx.Dp(18))}
-	})), el.Text(name).TextSize(12).Bold().MaxLines(1).Grow().W(el.Dp(0)))
+	})), el.Text(name).TextSize(13).Bold().MaxLines(1).Grow().W(el.Dp(0)))
 	tool := func(n, ic string, fn func()) el.Element {
 		return el.Div().Role("button").Name(n + " pane " + strconv.Itoa(p.id)).OnClick(fn).NoShrink().Rounded(10).Hover(func(s *el.Style) { s.Bg(colors.hover) }).W(el.Dp(26)).H(el.Dp(26)).Child(el.Widget(core.Func(func(gtx core.C) core.D {
 			sc := gtx.Metric.PxPerDp
