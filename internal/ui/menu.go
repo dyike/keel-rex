@@ -3,7 +3,6 @@ package ui
 import (
 	"log"
 	"os"
-	"runtime"
 
 	"github.com/dyike/keel/ui/window"
 )
@@ -15,6 +14,12 @@ func installApplicationMenu(a *app) {
 		return
 	}
 	applicationApp = a
+	if err := window.SetApplicationMenu(a.applicationMenu()...); err != nil {
+		log.Printf("application menu: %v", err)
+	}
+}
+
+func (a *app) applicationMenu() []window.MenuItem {
 	commands := map[string]appCommand{}
 	for _, command := range a.commands() {
 		commands[command.ID] = command
@@ -23,9 +28,9 @@ func installApplicationMenu(a *app) {
 		shortcut := commands[id].Shortcut
 		switch id {
 		case "quit":
-			shortcut = "mod+q"
+			shortcut = desktopChrome.shortcut("mod+q")
 		case "palette":
-			shortcut = "mod+shift+p"
+			shortcut = desktopChrome.shortcut("mod+shift+p")
 		}
 		return window.MenuItem{ID: id, Title: title, Shortcut: shortcut, OnSelect: func() {
 			if id == "quit" {
@@ -46,12 +51,12 @@ func installApplicationMenu(a *app) {
 	}
 	edit := func(id, title, shortcut string, action window.MenuAction) window.MenuItem {
 		// Keep Ctrl+C/Ctrl+A available to terminal programs on Windows/Linux.
-		if runtime.GOOS != "darwin" {
+		if !desktopChrome.trafficLights {
 			shortcut = "ctrl+shift+" + shortcut[len("mod+"):]
 		}
 		return window.MenuItem{ID: id, Title: title, Shortcut: shortcut, Action: action}
 	}
-	err := window.SetApplicationMenu(
+	menus := []window.MenuItem{
 		window.MenuItem{Title: "Rex Keel", Role: window.MenuApplication, Children: []window.MenuItem{
 			item("host", "About this host"), {Separator: true}, item("quit", "Quit Rex (keep sessions)"), item("end-all", "Quit and end all sessions…"),
 		}},
@@ -67,8 +72,13 @@ func installApplicationMenu(a *app) {
 		window.MenuItem{Title: "Tabs", Children: []window.MenuItem{
 			item("previous-tab", "Previous tab"), item("next-tab", "Next tab"), item("rename", "Rename tab…"),
 		}},
-	)
-	if err != nil {
-		log.Printf("application menu: %v", err)
 	}
+	if !desktopChrome.trafficLights {
+		file := menus[1]
+		file.Title = "File"
+		file.Children = append(file.Children, window.MenuItem{Separator: true}, item("quit", "Exit (keep sessions)"), item("end-all", "Exit and end all sessions…"))
+		menus = append([]window.MenuItem{file}, menus[2:]...)
+		menus = append(menus, window.MenuItem{Title: "Help", Role: window.MenuHelp, Children: []window.MenuItem{item("host", "Host and session information…")}})
+	}
+	return menus
 }

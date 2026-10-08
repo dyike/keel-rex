@@ -26,6 +26,19 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+func TestWindowsHostDetails(t *testing.T) {
+	details := (HostInspector{}).Details()
+	if !strings.HasPrefix(details.System, "Windows") || !strings.Contains(details.System, "build ") {
+		t.Fatalf("missing Windows version: %+v", details)
+	}
+	if details.Chip == "Unavailable" || details.Chip == "amd64" || details.Chip == "arm64" {
+		t.Fatalf("missing processor identity: %+v", details)
+	}
+	if !strings.HasSuffix(details.Memory, " GB") || details.User == "" {
+		t.Fatalf("missing physical memory or user: %+v", details)
+	}
+}
+
 func waitWindowsScreen(t *testing.T, s Session, text string) {
 	t.Helper()
 	deadline := time.Now().Add(15 * time.Second)

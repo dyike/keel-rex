@@ -61,6 +61,10 @@ func (a *app) commands() []appCommand {
 		d := direction
 		commands = append(commands, appCommand{"focus-" + d.name, "Focus pane " + d.name, "mod+alt+" + d.key, "⌥⌘" + d.hint, func() { a.moveFocus(d.x, d.y) }}, appCommand{"divider-" + d.name, "Move divider " + d.name, "mod+ctrl+" + d.key, "⌃⌘" + d.hint, func() { a.resizeDivider(d.x, d.y) }})
 	}
+	for i := range commands {
+		commands[i].Shortcut = desktopChrome.shortcut(commands[i].Shortcut)
+		commands[i].Hint = desktopChrome.shortcutHint(commands[i].Shortcut, commands[i].Hint)
+	}
 	return commands
 }
 func (a *app) shortcuts(cx *el.Context) {
@@ -86,15 +90,15 @@ func (a *app) shortcuts(cx *el.Context) {
 			cx.Shortcut(command.Shortcut, command.Run)
 		}
 	}
-	cx.Shortcut("mod+shift+p", a.openPalette)
-	cx.Shortcut("mod+p", a.openPalette)
-	cx.Shortcut("mod+enter", func() { a.tabs[a.active].zoom = !a.tabs[a.active].zoom })
+	cx.Shortcut(desktopChrome.shortcut("mod+shift+p"), a.openPalette)
+	cx.Shortcut(desktopChrome.shortcut("mod+p"), a.openPalette)
+	cx.Shortcut(desktopChrome.shortcut("mod+enter"), func() { a.tabs[a.active].zoom = !a.tabs[a.active].zoom })
 	cx.Shortcut("ctrl+tab", func() { a.cycleTab(1) })
 	cx.Shortcut("ctrl+shift+tab", func() { a.cycleTab(-1) })
-	cx.Shortcut("mod+shift+o", a.openDirectory)
+	cx.Shortcut(desktopChrome.shortcut("mod+shift+o"), a.openDirectory)
 	for n := 1; n <= 9; n++ {
 		n := n
-		cx.Shortcut(fmt.Sprintf("mod+%d", n), func() {
+		cx.Shortcut(desktopChrome.shortcut(fmt.Sprintf("mod+%d", n)), func() {
 			if n == 9 {
 				a.activate(len(a.tabs) - 1)
 			} else {

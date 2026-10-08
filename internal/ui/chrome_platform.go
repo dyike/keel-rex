@@ -10,18 +10,22 @@ type platformChrome struct {
 	trafficLights bool
 	hostLeft      float32
 	paletteIcon   string
+	deviceIcon    string
+	hostLabel     string
+	systemName    string
+	toolStroke    string
 }
 
 var desktopChrome = chromeForPlatform(runtime.GOOS)
 
 func chromeForPlatform(platform string) platformChrome {
 	if platform == "darwin" {
-		return platformChrome{trafficLights: true, hostLeft: 89, paletteIcon: "command"}
+		return platformChrome{trafficLights: true, hostLeft: 89, paletteIcon: "command", deviceIcon: "mac-studio", hostLabel: "This Mac", systemName: "macOS"}
 	}
 	if platform == "windows" {
-		return platformChrome{hostLeft: 8, paletteIcon: "windows"}
+		return platformChrome{hostLeft: 8, paletteIcon: "windows", deviceIcon: "monitor", hostLabel: "This PC", systemName: "Windows", toolStroke: "1.8"}
 	}
-	return platformChrome{hostLeft: 8, paletteIcon: "search"}
+	return platformChrome{hostLeft: 8, paletteIcon: "search", deviceIcon: "monitor", hostLabel: "This computer", systemName: "Linux"}
 }
 
 func (c platformChrome) tabsLeft() float32 { return c.hostLeft + 113 }

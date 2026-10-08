@@ -12,6 +12,9 @@ import (
 )
 
 func (a *app) shortcutHint(hint string) el.Element {
+	if !desktopChrome.trafficLights && hint == "↩" {
+		hint = "Enter"
+	}
 	c := a.colors()
 	// Paint symbols and letters on one baseline. All key symbols use the
 	// same optical bounds and stroke weight, including font fallback glyphs.
@@ -80,6 +83,10 @@ func (a *app) menuButton(name, hint string, run func()) el.Element {
 }
 func (a *app) overlays(cx *el.Context, w, h float32) {
 	c := a.colors()
+	contextWidth := float32(240)
+	if !desktopChrome.trafficLights {
+		contextWidth = 320
+	}
 	panel := func(width float32) *el.DivEl {
 		return el.Div().W(el.Dp(min(width, max(float32(100), w-32)))).Bg(c.panel).TextColor(c.text).Border(1, c.border).Rounded(12).P(14).Gap(8)
 	}
@@ -151,7 +158,7 @@ func (a *app) overlays(cx *el.Context, w, h float32) {
 	}
 	if a.menuTab != nil {
 		tab := a.menuTab
-		menu := panel(240).P(6).Child(a.menuButton("Rename tab", "⇧⌘R", func() {
+		menu := panel(contextWidth).P(6).Child(a.menuButton("Rename tab", a.commandHint("rename"), func() {
 			a.closeOverlay()
 			for i, t := range a.tabs {
 				if t == tab {
@@ -175,12 +182,12 @@ func (a *app) overlays(cx *el.Context, w, h float32) {
 					break
 				}
 			}
-		}), a.menuButton("Close tab", "⇧⌘W", func() { a.closeOverlay(); a.closeSpecificTab(tab) }))
+		}), a.menuButton("Close tab", a.commandHint("close-tab"), func() { a.closeOverlay(); a.closeSpecificTab(tab) }))
 		cx.Overlay("tab-context", el.Anchored(fmt.Sprintf("tab-%p", tab), menu).OnDismiss(a.closeOverlay))
 	}
 	if a.contextPane != nil {
 		p := a.contextPane
-		menu := panel(240).P(6).Child(a.menuButton("Split right", "⌘D", func() { a.closeOverlay(); a.focusPane(p); a.split(true) }), a.menuButton("Split down", "⇧⌘D", func() { a.closeOverlay(); a.focusPane(p); a.split(false) }), a.menuButton("Zoom / restore", "⇧⌘↩", func() { a.closeOverlay(); a.focusPane(p); a.tabs[a.active].zoom = !a.tabs[a.active].zoom }), a.menuButton("Close pane", "⌘W", func() { a.closeOverlay(); a.requestClosePane(p) }))
+		menu := panel(contextWidth).P(6).Child(a.menuButton("Split right", a.commandHint("split-right"), func() { a.closeOverlay(); a.focusPane(p); a.split(true) }), a.menuButton("Split down", a.commandHint("split-down"), func() { a.closeOverlay(); a.focusPane(p); a.split(false) }), a.menuButton("Zoom / restore", a.commandHint("zoom"), func() { a.closeOverlay(); a.focusPane(p); a.tabs[a.active].zoom = !a.tabs[a.active].zoom }), a.menuButton("Close pane", a.commandHint("close-pane"), func() { a.closeOverlay(); a.requestClosePane(p) }))
 		cx.Overlay("pane-context", el.Anchored(fmt.Sprintf("pane-head-%d", p.id), menu).OnDismiss(a.closeOverlay))
 	}
 	if a.hostOpen {
@@ -188,7 +195,11 @@ func (a *app) overlays(cx *el.Context, w, h float32) {
 			a.hostPoll++
 			a.refreshHostStatus()
 		})
-		content := a.hostPanel(min(float32(300), max(float32(100), w-32)))
+		hostWidth := float32(300)
+		if !desktopChrome.trafficLights {
+			hostWidth = 340
+		}
+		content := a.hostPanel(min(hostWidth, max(float32(100), w-32)))
 		cx.Overlay("host-information", el.Anchored("host-chip", content).Placement(el.Bottom, el.Start).OnDismiss(a.closeOverlay))
 	}
 	if a.searchOpen {

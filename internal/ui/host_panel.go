@@ -15,20 +15,20 @@ func (a *app) hostPanel(width float32) *el.DivEl {
 	if a.prefs.Appearance != "dark" && !(a.prefs.Appearance == "system" && a.appearanceDark) {
 		background = rgb(0xfcfcfe)
 	}
-	state, dot := "This Mac · connecting…", c.muted
+	state, dot := desktopChrome.hostLabel+" · connecting…", c.muted
 	if status.Loaded {
-		state = "This Mac · disconnected"
+		state = desktopChrome.hostLabel + " · disconnected"
 		dot = red
 		if status.Connected {
-			state, dot = "This Mac · connected", green
+			state, dot = desktopChrome.hostLabel+" · connected", green
 			if status.Local {
-				state = "This Mac · local sessions"
+				state = desktopChrome.hostLabel + " · local sessions"
 			}
 		}
 	}
 	icon := el.Div().Size(el.Dp(38)).Rounded(9).Bg(c.hover).Center().Child(el.Widget(core.Func(func(gtx core.C) core.D {
 		p := painter{gtx, gtx.Metric.PxPerDp}
-		p.glyph("mac-studio", 0, 0, 24, c.text)
+		p.glyph("device", 0, 0, 24, c.text)
 		return core.D{Size: image.Pt(gtx.Dp(24), gtx.Dp(24))}
 	})).Size(el.Dp(24)))
 	header := el.Div().Row().Items(el.Center).Gap(10).Child(icon,

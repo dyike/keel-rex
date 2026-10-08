@@ -4,15 +4,17 @@ import (
 	"github.com/dyike/keel-rex/internal/backend"
 	"github.com/dyike/keel/ui/core"
 	"os"
-	"runtime"
 )
 
 func (a *app) loadHostInfo() {
-	a.hostModel = runtime.GOOS
-	a.hostDetails = backend.HostDetails{Model: "Reading…", Chip: "Reading…", Memory: "Reading…", System: runtime.GOOS, User: os.Getenv("USER")}
+	a.hostModel = desktopChrome.systemName
+	a.hostDetails = backend.HostDetails{Model: "Reading…", Chip: "Reading…", Memory: "Reading…", System: desktopChrome.systemName, User: os.Getenv("USER")}
 	go func() {
 		details := (backend.HostInspector{}).Details()
 		model := details.Model
+		if model == "" || model == "Unavailable" {
+			model = desktopChrome.systemName
+		}
 		core.Update(func() { a.hostDetails, a.hostModel = details, model })
 	}()
 }

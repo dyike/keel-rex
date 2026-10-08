@@ -14,6 +14,7 @@ import (
 	"github.com/dyike/keel/ui/theme"
 	"image"
 	"image/color"
+	"regexp"
 	"strings"
 )
 
@@ -34,10 +35,13 @@ func (p painter) disk(x, y, r float32, c color.NRGBA) {
 }
 
 type iconKey struct {
-	Name  string
-	Size  float32
-	Color color.NRGBA
+	Name   string
+	Size   float32
+	Color  color.NRGBA
+	Stroke string
 }
+
+var svgStrokeWidth = regexp.MustCompile(`stroke-width="[0-9.]+"`)
 
 var iconViews = map[iconKey]*el.RootWidget{}
 var iconRevision uint64
@@ -45,7 +49,7 @@ var iconRevision uint64
 func iconName(name string) string {
 	aliases := map[string]string{
 		"split-v": "columns-2", "split-h": "rows-2", "expand": "maximize-2",
-		"restore": "minimize-2", "close": "x", "device": "mac-studio",
+		"restore": "minimize-2", "close": "x", "device": desktopChrome.deviceIcon,
 		"fish": "square-terminal", "shell": "square-terminal", "git": "plus-minus-circle",
 		"codex": "brand:openai", "claude": "brand:claude", "node": "node-hex",
 		"bun": "brand:bun", "python": "brand:python", "editor": "brand:neovim",
@@ -62,7 +66,11 @@ func (p painter) glyph(name string, x, y, size float32, c color.NRGBA) {
 		iconRevision = rev
 	}
 	name = iconName(name)
-	key := iconKey{name, size, c}
+	stroke := ""
+	if !strings.HasPrefix(name, "brand:") && name != "node-hex" && name != "terminal" && name != "square-terminal" {
+		stroke = desktopChrome.toolStroke
+	}
+	key := iconKey{Name: name, Size: size, Color: c, Stroke: stroke}
 	view := iconViews[key]
 	if view == nil {
 		file := "assets/icons/" + name + ".svg"
@@ -72,6 +80,9 @@ func (p painter) glyph(name string, x, y, size float32, c color.NRGBA) {
 		data, err := assets.Icons.ReadFile(strings.TrimPrefix(file, "assets/"))
 		if err != nil {
 			panic(err)
+		}
+		if stroke != "" {
+			data = svgStrokeWidth.ReplaceAll(data, []byte(`stroke-width="`+stroke+`"`))
 		}
 		icon, err := kit.SVGIcon(data)
 		if err != nil {
