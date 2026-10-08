@@ -29,14 +29,15 @@ type pane struct {
 	lastProgram string
 	wasBusy     bool // busy when last drawn
 
-	id                      int
-	first, second           *pane
-	vertical                bool
-	ratio                   float32
-	dragRatio, dragX, dragY float32
-	term                    *terminal
-	git                     *gitState
-	err                     string
+	id                int
+	first, second     *pane
+	vertical          bool
+	ratio             float32
+	dividerDragOffset float32
+	resizing          bool
+	term              *terminal
+	git               *gitState
+	err               string
 }
 type workspace struct {
 	focus       *pane
@@ -372,6 +373,7 @@ func (a *app) Render(cx *el.Context) el.Element {
 	return root
 }
 func (a *app) layout(cx *el.Context, root *el.DivEl, n *pane, x, y, w, h float32) {
+	n.bounds = paneRect{x, y, w, h}
 	if n.first == nil {
 		n.bounds = paneRect{x, y, w, h}
 		root.Child(a.pane(cx, n, x, y, w, h))
@@ -381,26 +383,12 @@ func (a *app) layout(cx *el.Context, root *el.DivEl, n *pane, x, y, w, h float32
 		ww := (w - 8) * n.ratio
 		a.layout(cx, root, n.first, x, y, ww, h)
 		a.layout(cx, root, n.second, x+ww+8, y, w-ww-8, h)
-		root.Child(el.Div().Absolute().Left(x + ww).Top(y).W(el.Dp(8)).H(el.Dp(h)).Role("separator").Name("Vertical divider").OnDoubleClick(func() { n.ratio = .5 }).OnDrag(func(e el.DragEvent) {
-			if e.Kind == el.DragStart {
-				n.dragRatio, n.dragX = n.ratio, e.X
-			}
-			if e.Kind == el.DragMove {
-				n.ratio = max(.15, min(.85, (e.X-n.dragX)/max(1, w-8)+n.ratio))
-			}
-		}))
+		root.Child(a.divider(cx, n, x+ww, y, 8, h, w-8))
 	} else {
 		hh := (h - 8) * n.ratio
 		a.layout(cx, root, n.first, x, y, w, hh)
 		a.layout(cx, root, n.second, x, y+hh+8, w, h-hh-8)
-		root.Child(el.Div().Absolute().Left(x).Top(y + hh).W(el.Dp(w)).H(el.Dp(8)).Role("separator").Name("Horizontal divider").OnDoubleClick(func() { n.ratio = .5 }).OnDrag(func(e el.DragEvent) {
-			if e.Kind == el.DragStart {
-				n.dragRatio, n.dragY = n.ratio, e.Y
-			}
-			if e.Kind == el.DragMove {
-				n.ratio = max(.15, min(.85, (e.Y-n.dragY)/max(1, h-8)+n.ratio))
-			}
-		}))
+		root.Child(a.divider(cx, n, x, y+hh, w, 8, h-8))
 	}
 }
 func (a *app) pane(cx *el.Context, p *pane, x, y, w, h float32) el.Element {
