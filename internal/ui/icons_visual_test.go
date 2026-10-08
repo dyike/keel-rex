@@ -42,7 +42,7 @@ func TestIconVisualFixture(t *testing.T) {
 					return core.D{Size: image.Pt(gtx.Dp(72), gtx.Dp(22))}
 				})), el.Text(name).TextSize(9)))
 			}
-			for _, name := range []string{"split-v", "split-h", "expand", "restore", "close", "plus", "command"} {
+			for _, name := range []string{"split-v", "split-h", "expand", "restore", "close", "plus", "command", "windows"} {
 				name := name
 				row.Child(el.Div().W(el.Dp(72)).Gap(12).Items(el.Center).Child(el.Widget(core.Func(func(gtx core.C) core.D {
 					p := painter{gtx, gtx.Metric.PxPerDp}
@@ -55,7 +55,7 @@ func TestIconVisualFixture(t *testing.T) {
 			return el.Div().P(20).Gap(18).Bg(theme.Surface).Child(el.Text("Button icons · 16dp · idle / hover").Bold().TextSize(14), row, actions, programs)
 		}))
 		for _, scale := range []float32{1, 2} {
-			if e := window.ScreenshotAtScale(root, 612, 265, scale, filepath.Join(dir, fmt.Sprintf("buttons-%s-%gx.png", mode, scale))); e != nil {
+			if e := window.ScreenshotAtScale(root, 694, 265, scale, filepath.Join(dir, fmt.Sprintf("buttons-%s-%gx.png", mode, scale))); e != nil {
 				t.Fatal(e)
 			}
 		}

@@ -85,30 +85,6 @@ func (p painter) stroke(c color.NRGBA, width float32, points ...f32.Point) {
 		p.disk(v.X, v.Y, width/2, c)
 	}
 }
-func (p painter) trafficLight(kind int, x, y float32, hover bool) {
-	fills := []uint32{0xff6058, 0xffbd2e, 0x28c840}
-	borders := []uint32{0xe14942, 0xdca020, 0x20a932}
-	fill, border := rgb(fills[kind]), rgb(borders[kind])
-	if w := core.CurrentWindow(); w != nil && !w.Focused() {
-		fill, border = rgb(0xd2cbd3), rgb(0xbcb5be)
-	}
-	p.rect(x, y, 14, 14, 7, border)
-	p.rect(x+.5, y+.5, 13, 13, 6.5, fill)
-	if !hover {
-		return
-	}
-	col := rgb(0x60432b)
-	switch kind {
-	case 0:
-		p.stroke(col, 1.1, f32.Pt(x+4, y+4), f32.Pt(x+10, y+10))
-		p.stroke(col, 1.1, f32.Pt(x+10, y+4), f32.Pt(x+4, y+10))
-	case 1:
-		p.stroke(col, 1.2, f32.Pt(x+3.5, y+7), f32.Pt(x+10.5, y+7))
-	case 2:
-		p.stroke(rgb(0x155923), 1.1, f32.Pt(x+4, y+8), f32.Pt(x+4, y+4), f32.Pt(x+8, y+4))
-		p.stroke(rgb(0x155923), 1.1, f32.Pt(x+6, y+10), f32.Pt(x+10, y+10), f32.Pt(x+10, y+6))
-	}
-}
 func (p painter) programStack(tab *workspace, x, y float32) {
 	var icons []string
 	tab.root.each(func(n *pane) {

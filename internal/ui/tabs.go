@@ -12,7 +12,8 @@ import (
 
 func (a *app) renderTabs(cx *el.Context, root *el.DivEl, w float32) {
 	c := a.colors()
-	width := max(float32(0), w-284)
+	left := desktopChrome.tabsLeft()
+	width := max(float32(0), w-left-82)
 	count := len(a.tabs)
 	if count == 0 {
 		return
@@ -28,7 +29,7 @@ func (a *app) renderTabs(cx *el.Context, root *el.DivEl, w float32) {
 		edgeColor = color.NRGBA{R: 255, G: 255, B: 255, A: 220}
 		hoverColor = rgb(0xe9e2e9)
 	}
-	track := el.Div().ID("tab-strip").Absolute().Left(202).Top(5).W(el.Dp(rowWidth+6)).H(el.Dp(36)).Rounded(18).Border(1, edgeColor).P(2).Bg(frameColor)
+	track := el.Div().ID("tab-strip").Absolute().Left(left).Top(5).W(el.Dp(rowWidth+6)).H(el.Dp(36)).Rounded(18).Border(1, edgeColor).P(2).Bg(frameColor)
 	row := el.Div().Row().Gap(gap).W(el.Dp(rowWidth)).H(el.Dp(30)).NoShrink()
 	for index, tab := range a.tabs {
 		index, tab := index, tab

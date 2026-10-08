@@ -13,7 +13,6 @@ import (
 	"image/color"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -328,7 +327,7 @@ func (a *app) Render(cx *el.Context) el.Element {
 			icon = "plus"
 		}
 		if name == "Command palette" {
-			icon = "command"
+			icon = desktopChrome.paletteIcon
 		}
 		if icon != "" {
 			b.Child(el.Widget(core.Func(func(gtx core.C) core.D {
@@ -343,22 +342,20 @@ func (a *app) Render(cx *el.Context) el.Element {
 		}
 		return b
 	}
-	wc := core.CurrentWindow()
-	if wc != nil && runtime.GOOS != "darwin" {
-		root.Child(button("Close window", 13, 13, 18, 18, wc.Close).ID("window-close"), button("Minimize window", 36, 13, 18, 18, wc.Minimize).ID("window-minimize"), button("Zoom window", 59, 13, 18, 18, wc.ToggleMaximize).ID("window-zoom"))
-	}
-	// Keep native drag areas outside the host chip, tabs and toolbar buttons.
-	for _, rail := range []paneRect{{0, 0, w, 5}, {0, 41, w, 5}, {78, 5, 11, 36}} {
-		r := rail
-		root.Child(el.Div().Absolute().Left(r.X).Top(r.Y).W(el.Dp(r.W)).H(el.Dp(r.H)).Decorate(func(gtx core.C, draw func()) {
-			defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
-			system.ActionInputOp(system.ActionMove).Add(gtx.Ops)
-			draw()
-		}))
+	if desktopChrome.trafficLights {
+		// Keep native drag areas outside the host chip, tabs and toolbar buttons.
+		for _, rail := range []paneRect{{0, 0, w, 5}, {0, 41, w, 5}, {78, 5, 11, 36}} {
+			r := rail
+			root.Child(el.Div().Absolute().Left(r.X).Top(r.Y).W(el.Dp(r.W)).H(el.Dp(r.H)).Decorate(func(gtx core.C, draw func()) {
+				defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
+				system.ActionInputOp(system.ActionMove).Add(gtx.Ops)
+				draw()
+			}))
+		}
 	}
 
 	a.renderTabs(cx, root, w)
-	root.Child(el.Div().ID("host-chip").Absolute().Left(89).Top(5).W(el.Dp(110)).H(el.Dp(34)).Role("button").Name("Host information").OnClick(a.toggleHostInfo))
+	root.Child(el.Div().ID("host-chip").Absolute().Left(desktopChrome.hostLeft).Top(5).W(el.Dp(110)).H(el.Dp(34)).Role("button").Name("Host information").OnClick(a.toggleHostInfo))
 	root.Child(button("New terminal tab", w-37, 9, 28, 27, a.newTab), button("Command palette", w-72, 9, 29, 27, a.openPalette))
 	space := a.tabs[a.active]
 	if space.zoom && a.focused != nil {
@@ -462,7 +459,11 @@ func (c *chrome) Layout(gtx core.C) core.D {
 	}
 	w, h := float32(sz.X)/sc, float32(sz.Y)/sc
 	p := painter{gtx, sc}
-	defer clip.RRect{Rect: image.Rectangle{Max: sz}, NE: int(16 * sc), NW: int(16 * sc), SE: int(16 * sc), SW: int(16 * sc)}.Push(gtx.Ops).Pop()
+	radius := 0
+	if desktopChrome.trafficLights {
+		radius = int(16 * sc)
+	}
+	defer clip.RRect{Rect: image.Rectangle{Max: sz}, NE: radius, NW: radius, SE: radius, SW: radius}.Push(gtx.Ops).Pop()
 	colors := c.a.colors()
 	for y := float32(0); y < h; y++ {
 		t := y / h
@@ -470,17 +471,11 @@ func (c *chrome) Layout(gtx core.C) core.D {
 		p.rect(0, y, w, 1, 0, color.NRGBA{R: mix(colors.top.R, colors.bottom.R), G: mix(colors.top.G, colors.bottom.G), B: mix(colors.top.B, colors.bottom.B), A: 255})
 	}
 	a := c.a
-	if runtime.GOOS != "darwin" {
-		for i := 0; i < 3; i++ {
-			p.trafficLight(i, 15+float32(i*23), 15, false)
-		}
-	}
-	hostClip := clip.Rect(image.Rect(int(89*sc), 0, int(199*sc), int(44*sc))).Push(gtx.Ops)
-	p.symbol("device", 95, 13, 18, 16)
-	p.label(hostname(), 122, 21, 13, a.colors().text, false, true)
-	host, _ := os.Hostname()
-	_ = host
-	p.label(a.hostModel, 122, 33, 10, a.colors().muted, false, false)
+	left := desktopChrome.hostLeft
+	hostClip := clip.Rect(image.Rect(int(left*sc), 0, int((left+110)*sc), int(44*sc))).Push(gtx.Ops)
+	p.symbol("device", left+6, 13, 18, 16)
+	p.label(hostname(), left+33, 21, 13, a.colors().text, false, true)
+	p.label(a.hostModel, left+33, 33, 10, a.colors().muted, false, false)
 	hostClip.Pop()
 	return core.D{Size: sz}
 }

@@ -101,7 +101,7 @@ func Run(options Options) {
 		}
 		return
 	}
-	a.window = window.Open(window.Options{Title: fmt.Sprintf("Rex · %s", filepath.Base(abs)), Width: a.prefs.WindowWidth, Height: a.prefs.WindowHeight, MinWidth: 800, MinHeight: 480, OnResize: a.rememberWindowSize, Frameless: true, NativeTrafficLights: true, TrafficLightLayout: &window.TrafficLightLayout{Height: 44, Left: 15, Spacing: 23}, Content: root, OnClose: a.close})
+	a.window = window.Open(desktopChrome.windowOptions(window.Options{Title: fmt.Sprintf("Rex · %s", filepath.Base(abs)), Width: a.prefs.WindowWidth, Height: a.prefs.WindowHeight, MinWidth: 800, MinHeight: 480, OnResize: a.rememberWindowSize, Content: root, OnClose: a.close}))
 	mark("window.Open")
 	// The first frame waits for the fonts and the workspace, so it draws
 	// with them.

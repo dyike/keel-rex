@@ -37,49 +37,56 @@ func tabBounds(router *input.Router) []image.Rectangle {
 }
 
 func TestTabsFitWithoutHorizontalScroll(t *testing.T) {
-	for _, width := range []int{480, 680, 1057} {
-		for _, count := range []int{2, 6, 14, 30} {
-			for _, scale := range []float32{1, 2} {
-				t.Run(fmt.Sprintf("%dpx-%dtabs-%gx", width, count, scale), func(t *testing.T) {
-					a := &app{}
-					for i := range count {
-						a.tabs = append(a.tabs, &workspace{root: &pane{}, title: fmt.Sprintf("Workspace %d with a long name", i+1)})
+	for _, platform := range []string{"darwin", "windows"} {
+		t.Run(platform, func(t *testing.T) {
+			previousChrome := desktopChrome
+			desktopChrome = chromeForPlatform(platform)
+			t.Cleanup(func() { desktopChrome = previousChrome })
+			for _, width := range []int{480, 680, 1057} {
+				for _, count := range []int{2, 6, 14, 30} {
+					for _, scale := range []float32{1, 2} {
+						t.Run(fmt.Sprintf("%dpx-%dtabs-%gx", width, count, scale), func(t *testing.T) {
+							a := &app{}
+							for i := range count {
+								a.tabs = append(a.tabs, &workspace{root: &pane{}, title: fmt.Sprintf("Workspace %d with a long name", i+1)})
+							}
+							root := el.Root(el.ViewFunc(func(cx *el.Context) el.Element {
+								box := el.Div().Bg(a.colors().track)
+								a.renderTabs(cx, box, float32(width))
+								return box
+							}))
+							var ops op.Ops
+							var router input.Router
+							for range 3 {
+								ops.Reset()
+								root.Layout(layout.Context{Ops: &ops, Source: router.Source(), Now: time.Now(), Metric: unit.Metric{PxPerDp: scale, PxPerSp: scale}, Constraints: layout.Exact(image.Pt(int(float32(width)*scale), int(44*scale)))})
+								router.Frame(&ops)
+							}
+							bounds := tabBounds(&router)
+							if len(bounds) != count {
+								t.Fatalf("visible tabs: %d want %d", len(bounds), count)
+							}
+							right := int(float32(width-82) * scale)
+							previous := int(desktopChrome.tabsLeft() * scale)
+							for i, b := range bounds {
+								if b.Dx() <= 0 || b.Min.X < previous || b.Max.X > right {
+									t.Fatalf("tab %d overlaps or leaves the strip: %v, previous=%d right=%d", i, b, previous, right)
+								}
+								previous = b.Max.X
+							}
+							if dir := os.Getenv("REX_TAB_QA_DIR"); dir != "" && scale == 2 && width == 680 {
+								if e := os.MkdirAll(dir, 0755); e != nil {
+									t.Fatal(e)
+								}
+								if e := window.ScreenshotAtScale(root, width, 44, scale, filepath.Join(dir, fmt.Sprintf("tabs-%s-%d.png", platform, count))); e != nil {
+									t.Fatal(e)
+								}
+							}
+						})
 					}
-					root := el.Root(el.ViewFunc(func(cx *el.Context) el.Element {
-						box := el.Div().Bg(a.colors().track)
-						a.renderTabs(cx, box, float32(width))
-						return box
-					}))
-					var ops op.Ops
-					var router input.Router
-					for range 3 {
-						ops.Reset()
-						root.Layout(layout.Context{Ops: &ops, Source: router.Source(), Now: time.Now(), Metric: unit.Metric{PxPerDp: scale, PxPerSp: scale}, Constraints: layout.Exact(image.Pt(int(float32(width)*scale), int(44*scale)))})
-						router.Frame(&ops)
-					}
-					bounds := tabBounds(&router)
-					if len(bounds) != count {
-						t.Fatalf("visible tabs: %d want %d", len(bounds), count)
-					}
-					right := int(float32(width-82) * scale)
-					previous := int(202 * scale)
-					for i, b := range bounds {
-						if b.Dx() <= 0 || b.Min.X < previous || b.Max.X > right {
-							t.Fatalf("tab %d overlaps or leaves the strip: %v, previous=%d right=%d", i, b, previous, right)
-						}
-						previous = b.Max.X
-					}
-					if dir := os.Getenv("REX_TAB_QA_DIR"); dir != "" && scale == 2 && width == 680 {
-						if e := os.MkdirAll(dir, 0755); e != nil {
-							t.Fatal(e)
-						}
-						if e := window.ScreenshotAtScale(root, width, 44, scale, filepath.Join(dir, fmt.Sprintf("tabs-%d.png", count))); e != nil {
-							t.Fatal(e)
-						}
-					}
-				})
+				}
 			}
-		}
+		})
 	}
 }
 
