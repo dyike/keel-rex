@@ -155,4 +155,7 @@ func (s *session) syncAppearance(value string) {
 	}
 	s.emu.SetDefaultForegroundColor(fg)
 	s.emu.SetDefaultBackgroundColor(bg)
+	s.emu.SetDefaultCursorColor(fg)
+	s.revision++
+	s.notify()
 }

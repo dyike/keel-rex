@@ -36,6 +36,9 @@ func (c cellPainter) Layout(gtx core.C) core.D {
 			}
 			if cell.Style.Bg != nil {
 				bg = color.NRGBAModel.Convert(cell.Style.Bg).(color.NRGBA)
+				if cell.Style.Fg == nil {
+					fg = readableDefaultForeground(fg, bg)
+				}
 			}
 			if cell.Style.Attrs&uv.AttrReverse != 0 {
 				if bg.A == 0 {
@@ -61,7 +64,56 @@ func (c cellPainter) Layout(gtx core.C) core.D {
 	return core.D{Size: gtx.Constraints.Max}
 }
 
+func TestTerminalThemeSwitchKeepsInputReadable(t *testing.T) {
+	a := &app{prefs: defaultPreferences()}
+	term := &terminal{owner: a, cols: 24, rows: 2, rowVersions: []uint64{1, 1}, cells: make([]uv.Cell, 48)}
+	backgrounds := []color.NRGBA{rgb(0x373c42), rgb(0xe3e6e8)}
+	for row, background := range backgrounds {
+		for x := range term.cols {
+			cell := uv.Cell{Content: " ", Width: 1, Style: uv.Style{Bg: background}}
+			if x < len("Ask Codex anything") {
+				cell.Content = string("Ask Codex anything"[x])
+			}
+			term.cells[row*term.cols+x] = cell
+		}
+	}
+	for i, appearance := range []string{"dark", "light", "dark", "light"} {
+		a.prefs.Appearance = appearance
+		path := filepath.Join(t.TempDir(), fmt.Sprintf("input-%d-%s.png", i, appearance))
+		if err := window.ScreenshotAtScale(fullRowPainter{rowPainter{term}}, 181, 32, 2, path); err != nil {
+			t.Fatal(err)
+		}
+		img := readPNG(t, path)
+		for row, background := range backgrounds {
+			if pixel := color.NRGBAModel.Convert(img.At(350, row*32+16)).(color.NRGBA); pixel != background {
+				t.Fatalf("%s row %d: background %v, want %v", appearance, row, pixel, background)
+			}
+			best := 0.0
+			for y := row * 32; y < (row+1)*32; y++ {
+				for x := 0; x < 300; x++ {
+					pixel := color.NRGBAModel.Convert(img.At(x, y)).(color.NRGBA)
+					best = max(best, contrast(pixel, background))
+				}
+			}
+			if best < 4.5 {
+				t.Fatalf("%s row %d: input text disappeared, contrast %.2f", appearance, row, best)
+			}
+		}
+		keep(t, path)
+	}
+	// Programs retain control over explicitly colored text, including dim text.
+	cell := uv.Cell{Style: uv.Style{Fg: rgb(0x444444), Bg: rgb(0x373c42)}}
+	fg, bg := cellColors(&cell, rowKey{fg: ink}, false)
+	if fg != rgb(0x444444) || bg != rgb(0x373c42) {
+		t.Fatal("overrode explicit ANSI colors")
+	}
+}
+
 type rowPainter struct{ t *terminal }
+
+type fullRowPainter struct{ rowPainter }
+
+func (fullRowPainter) FillsWindow() bool { return true }
 
 func (r rowPainter) Layout(gtx core.C) core.D {
 	t := r.t

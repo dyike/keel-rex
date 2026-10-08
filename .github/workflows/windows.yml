@@ -16,6 +16,6 @@ jobs:
           go build -o rex.exe .
           go build -o rex-server.exe ./cmd/rex-server
       - name: Exercise ConPTY, detached service, index-only commits and locking
-        run: go test ./internal/backend -run 'TestWindows|TestSessionServerLock|TestShellNames|TestRepositorySeparatesIndex' -count=1 -timeout=120s
+        run: go test ./internal/backend -run 'TestWindows|TestSessionAppearance|TestSessionServerLock|TestShellNames|TestRepositorySeparatesIndex' -count=1 -timeout=120s
       - name: Check commit editor focus
         run: go test ./internal/ui -run 'TestGitCommitInputKeepsFocusDuringRefresh|TestDesktopPlatformMenusAndShortcuts|TestTabsFitWithoutHorizontalScroll' -count=1

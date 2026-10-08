@@ -67,7 +67,7 @@ func newSessionWithOptions(options SessionOptions) (*session, error) {
 	s.emu.SetScrollbackSize(history)
 	s.emu.Scrollback().SetMaxBytes(8 << 20)
 	s.emu.SetDefaultForegroundColor(rgb(0x272d30))
-	s.emu.SetDefaultBackgroundColor(rgb(0xf4f4f4))
+	s.emu.SetDefaultBackgroundColor(rgb(0xf4f4f1))
 	s.emu.SetCallbacks(vt.Callbacks{Bell: func() { s.bells++ }, Title: func(v string) { s.title = v }, WorkingDirectory: func(v string) {
 		if parsed, e := url.Parse(v); e == nil && parsed.Scheme == "file" && parsed.Path != "" {
 			s.cwd = terminalDirectory(parsed.Path)

@@ -92,6 +92,11 @@ func cellColors(c *uv.Cell, key rowKey, selected bool) (fg, bg color.NRGBA) {
 	}
 	if c.Style.Bg != nil {
 		bg = color.NRGBAModel.Convert(c.Style.Bg).(color.NRGBA)
+		if c.Style.Fg == nil {
+			// A TUI can retain its explicit input background across theme
+			// changes while its default foreground follows the terminal.
+			fg = readableDefaultForeground(fg, bg)
+		}
 	}
 	if c.Style.Attrs&uv.AttrReverse != 0 {
 		if bg.A == 0 {
@@ -101,6 +106,9 @@ func cellColors(c *uv.Cell, key rowKey, selected bool) (fg, bg color.NRGBA) {
 	}
 	if selected {
 		bg = key.selection
+		if c.Style.Fg == nil && c.Style.Attrs&uv.AttrReverse == 0 {
+			fg = readableDefaultForeground(key.fg, bg)
+		}
 	}
 	return fg, bg
 }
