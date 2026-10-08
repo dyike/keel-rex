@@ -115,6 +115,16 @@ def run_one(name, bundle, exe, run_id, env_dir_var, extra_args):
     time.sleep(1.5)
     return res
 
+def write_meta(targets):
+    def sh(*c): return subprocess.run(c, capture_output=True, text=True).stdout.strip()
+    def du(p): return sum(os.path.getsize(os.path.join(r, f)) for r, _, fs in os.walk(p) for f in fs)
+    meta = dict(date=time.strftime('%Y-%m-%d %H:%M'), model=sh('sysctl', '-n', 'hw.model'),
+                chip=sh('sysctl', '-n', 'machdep.cpu.brand_string'), mem_gb=int(sh('sysctl', '-n', 'hw.memsize')) // 2**30,
+                macos=sh('sw_vers', '-productVersion'), go=sh('go', 'env', 'GOVERSION'),
+                bundles={n: dict(path=t[0], bytes=du(t[0]), exe_bytes=os.path.getsize(t[1])) for n, t in targets.items()})
+    json.dump(meta, open(os.path.join(B, 'meta.json'), 'w'), indent=1)
+
+
 if __name__ == '__main__':
     K = os.environ['KEEL_APP']; G = os.environ['GOREX_APP']
     targets = {
@@ -129,12 +139,3 @@ if __name__ == '__main__':
             print(json.dumps(res), flush=True); allr.append(res)
     json.dump(allr, open(os.path.join(B, 'results.json'), 'w'), indent=1)
     write_meta(targets)
-
-def write_meta(targets):
-    def sh(*c): return subprocess.run(c, capture_output=True, text=True).stdout.strip()
-    def du(p): return sum(os.path.getsize(os.path.join(r, f)) for r, _, fs in os.walk(p) for f in fs)
-    meta = dict(date=time.strftime('%Y-%m-%d %H:%M'), model=sh('sysctl', '-n', 'hw.model'),
-                chip=sh('sysctl', '-n', 'machdep.cpu.brand_string'), mem_gb=int(sh('sysctl', '-n', 'hw.memsize')) // 2**30,
-                macos=sh('sw_vers', '-productVersion'), go=sh('go', 'env', 'GOVERSION'),
-                bundles={n: dict(path=t[0], bytes=du(t[0]), exe_bytes=os.path.getsize(t[1])) for n, t in targets.items()})
-    json.dump(meta, open(os.path.join(B, 'meta.json'), 'w'), indent=1)

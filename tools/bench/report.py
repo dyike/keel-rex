@@ -316,6 +316,7 @@ def build(rows, meta, probe, timelines):
 
     # memprobe
     rec_html = recommendations(probe, idle_app, idle_srv, peak_app, peak_srv, S)
+    before_html = before_after(rows)
 
     keel_plain = S('keel', lambda r: r['plain']['srv_cpu'])
     page = f'''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -324,6 +325,7 @@ def build(rows, meta, probe, timelines):
 <p class="meta">{esc(meta.get('model', ''))} · {esc(meta.get('chip', ''))} · {meta.get('mem_gb', '?')} GB · macOS {esc(meta.get('macos', ''))} · {esc(meta.get('go', ''))} · 各 {runs['keel']} / {runs['mygo']} 轮，取中位数 · {esc(when)}</p>
 <p>同一个 Rex 终端的两种实现：<b>keel-rex</b> 基于 Keel（Gio），<b>GoRex</b> 基于 MyGo。两边都是 release 构建，使用隔离的会话目录，只开一个终端面板，由假 shell 在面板里依次 <code>cat</code> 负载文件。</p>
 <div class="cards">{cards}</div>
+{before_html}
 
 <h2>终端吞吐</h2>
 <p class="muted">计时从 <code>cat</code> 开始到 PTY 里的数据被读完。细线是多轮的最小–最大值。</p>
@@ -342,18 +344,18 @@ def build(rows, meta, probe, timelines):
 <p>多数差距来自 App 层的架构选择，而不是 Keel 和 MyGo 这两个 UI 框架本身：</p>
 <div class="arch">
 <div class="card"><div class="k">keel-rex</div><ul>
-<li>Server 用 <b>charmbracelet/vt</b>（纯 Go）解析，每滚动一行都有明显开销：纯文本负载 Server CPU {num(keel_plain[0]) if keel_plain else '–'} s。</li>
-<li>App 每个面板每 <b>45 ms</b> 新建一次 unix 连接，用 JSON RPC 拉取整屏 cell，空闲时也在轮询。</li>
-<li>启动时把 78 MB 的 PingFang.ttc 整个解析进 Go 堆（见下文）。</li></ul></div>
+<li>Server 用 fork 的 <b>charmbracelet/vt</b>（<code>third_party/vt</code>）解析：整行滚动、历史打包、成屏输出直接进历史，纯文本负载 Server CPU {num(keel_plain[0]) if keel_plain else '–'} s。</li>
+<li>Server 把变化的行用二进制推给 App（长连接，最多 60 次/秒）；App 只重绘变化的行，没变的行重放录好的操作。</li>
+<li>Gio 把文字画成矢量路径、每条路径一个 Metal 缓冲区：App 的 GPU 内存和 Go 堆里的字形缓存是剩下的主要差距。</li></ul></div>
 <div class="card"><div class="k">GoRex</div><ul>
 <li>Server 和 App 各跑一份 <b>libghostty-vt</b>（Zig，通过 purego 调用），Server 把原始字节流推给 App。</li>
-<li>App 同样要做一遍 VT 解析，所以 ansi / frames 负载下 App CPU 反而比 keel-rex 高。</li>
+<li>App 同样要做一遍 VT 解析，所以大量输出时 App CPU 比 keel-rex 高。</li>
 <li>内嵌 JetBrains Mono，中文交给系统回退字体。</li></ul></div>
 </div>
-<p>比较能反映框架本身的是<b>启动速度</b>、<b>同等工作量下 App 进程的 CPU</b> 和<b>包体积</b>，这几项两边接近或互有胜负。</p>
+<p>吞吐和 Server 端的差距来自 VT 库和应用架构；App 进程的 CPU 和内存差距里，有一部分是 Keel / Gio 本身的：同样的 UI 场景单独对比，MyGo 每帧 CPU 低 2.4–2.8 倍、空闲内存低 6.6 倍（见 <code>uibench/report.html</code>）。</p>
 {bund_html}
 
-<h2>keel-rex 内存优化建议</h2>
+<h2>keel-rex 优化记录</h2>
 {rec_html}
 
 <h2>完整数据</h2>
@@ -372,85 +374,56 @@ def build(rows, meta, probe, timelines):
     return page, '\n'.join(md)
 
 
+def before_after(rows):
+    """keel-rex before and after the VT work, from results-before.log."""
+    path = os.path.join(B, 'results-before.log')
+    if not os.path.exists(path):
+        return ''
+    old = [json.loads(l) for l in open(path) if l.startswith('{')]
+    items = [(f'{w} 吞吐 (MB/s)', lambda r, w=w, mb=mb: mb / r[w]['wall'], False) for w, mb, _ in WORK]
+    items += [('plain Server CPU (s)', lambda r: r['plain']['srv_cpu'], True),
+              ('Server footprint 峰值 (MB)', lambda r: fp(r, 'end', 'srv', 'phys_footprint_peak'), True),
+              ('App 空闲 footprint (MB)', lambda r: fp(r, 'idle', 'app'), True)]
+    trs = []
+    for name, f, lower in items:
+        a, b, g = stat(old, 'keel', f), stat(rows, 'keel', f), stat(rows, 'mygo', f)
+        if not a or not b:
+            continue
+        x = a[0] / b[0] if lower else b[0] / a[0]
+        change = '持平' if 0.9 < x < 1.1 else (f'{x:.1f}× 更好' if x > 1 else f'{1/x:.1f}× 更差')
+        trs.append(f'<tr><td>{esc(name)}</td><td>{num(a[0])}</td><td><b>{num(b[0])}</b></td><td>{change}</td><td class="muted">{num(g[0]) if g else "–"}</td></tr>')
+    return f'''<h2>keel-rex 优化前后</h2>
+<p class="muted">优化前是第一次测量（原版 charmbracelet/vt、逐个 1 KB 读取 PTY、45 ms 轮询 JSON 整屏、逐格排版、整包加载 PingFang）。具体改动见「keel-rex 优化记录」。</p>
+<div class="panel scroll"><table class="tbl"><thead><tr><th>指标</th><th>优化前</th><th>现在</th><th>变化</th><th>GoRex</th></tr></thead><tbody>{''.join(trs)}</tbody></table></div>'''
+
+
 def recommendations(probe, idle_app, idle_srv, peak_app, peak_srv, S):
-    fonts = {p['name']: p for p in (probe or {}).get('fonts', [])}
     sb = (probe or {}).get('scrollback', [])
-    sb_by = {x['lines']: x for x in sb}
+    sb_rows = ''.join(f'<tr><td>{x["lines"]:,} 行 × {x["cols"]} 列</td><td>{x["heap_mb"]:.0f} MB</td><td>{x["bytes_per_cell"]:.0f} B</td></tr>' for x in sb)
     ia = idle_app['keel'][0] if idle_app['keel'] else None
     pa = peak_app['keel'][0] if peak_app['keel'] else None
-    ps = peak_srv['keel'][0] if peak_srv['keel'] else None
-    font_chart = ''
-    if fonts:
-        font_chart = bars([
-            ('全部 PingFang（现状）', {'keel': (fonts['all']['heap_mb'],) * 3}),
-            ('只加载 PingFang SC 一个字形', {'keel': (fonts['one']['heap_mb'],) * 3}),
-            ('交给系统回退', {'keel': (fonts['system']['heap_mb'],) * 3}),
-            ('不加载中文', {'keel': (fonts['none']['heap_mb'],) * 3}),
-        ], 'MB', fmt=lambda v: f'{v:.0f}')
-    sb_rows = ''.join(f'<tr><td>{x["lines"]:,} 行 × {x["cols"]} 列</td><td>{x["heap_mb"]:.0f} MB</td><td>{x["bytes_per_cell"]:.0f} B</td></tr>' for x in sb)
-    f_all = fonts.get('all', {}).get('heap_mb')
-    f_one = fonts.get('one', {}).get('heap_mb')
-    f_none = fonts.get('none', {}).get('heap_mb')
-    sb10 = sb_by.get(10000, {}).get('heap_mb')
-    sb3 = sb_by.get(3000, {}).get('heap_mb')
-    if f_all and f_one:
-        font_save = f'Go 堆 −{f_all - f_one:.0f} MB'
-    else:
-        font_save = '数百 MB'
     return f'''
-<p>keel-rex 的 App 空闲 footprint <b>{num(ia)} MB</b>，峰值 <b>{num(pa)} MB</b>；Server 峰值 <b>{num(ps)} MB</b>。下面的数字来自 <code>memprobe</code>：在同一进程里单独复现每一项，测 GC 之后的存活堆。</p>
+<h3>已完成</h3>
 <ol class="recs">
-<li><b>不要整包加载 PingFang.ttc</b><span class="save">{font_save}</span>
-<p><code>main.go</code> 读入 78 MB 的 <code>PingFang.ttc</code> 交给 <code>theme.LoadFonts</code>，后者用 <code>opentype.ParseCollection</code> 把集合里的 24 个字形（SC/TC/HK/MO × 6 种字重）全部解析常驻，每个约 16 MB。Go GC 默认把堆的上限设成存活堆的两倍，所以实际 footprint 还要再翻倍：空闲 684 MB 里大部分来自这里。</p>
-<div class="panel">{font_chart}<p class="muted" style="margin:6px 0 0;font-size:12px">加载 Menlo + Helvetica Neue 后，再用各方案排版一行中文，测得的存活 Go 堆。“不加载中文”时中文会显示成方框，只作为基线参考。</p></div>
-<p>keel-rex 只用到 Regular 和 Bold（<code>paint.go</code>），只挑 PingFang SC 的 Regular 和 Semibold 就够了，约 +{(f_one - f_none) * 2 if f_one and f_none else 32:.0f} MB。建议在 Keel 加一个按描述筛选字形的 API，keel-rex 这样调用：</p>
-<pre><code>// keel/ui/theme：只解析需要的字形，而不是整个集合
-func LoadFontsWhere(data []byte, keep func(font.Description) bool) error {{
-	lds, err := opentype.NewLoaders(bytes.NewReader(data))
-	if err != nil {{
-		return err
-	}}
-	for _, ld := range lds {{
-		f, err := font.NewFont(ld)
-		if err != nil || !keep(f.Describe()) {{
-			continue
-		}}
-		loaded = append(loaded, giofont.FontFace{{Font: gioopentype.DescriptionToFont(f.Describe()), Face: face{{f}}}})
-	}}
-	// …rebuild Material.Shaper as LoadFonts does
-}}
-
-// keel-rex/main.go
-theme.LoadFontsWhere(pingfang, func(d font.Description) bool {{
-	return d.Family == "PingFang SC" &amp;&amp; (d.Aspect.Weight == font.WeightNormal || d.Aspect.Weight == font.WeightSemibold)
-}})</code></pre>
-<p>另一种做法是完全不加载，交给 Gio 的系统字体回退（约 {fonts.get('system', {}).get('heap_mb', 77):.0f} MB，按需加载，但字体选择不如手动指定可控）。</p></li>
-
-<li><b>限制 Server 端历史的内存</b><span class="save">每个会话 −{sb10 - sb3:.0f} MB（10000→3000 行）</span>
-<p>charmbracelet/vt 的历史按 cell 保存，每个 cell 约 {sb_by.get(10000, {}).get('bytes_per_cell', 121):.0f} 字节（含样式和链接）。10000 行 × 127 列就是 {sb10:.0f} MB，而且<b>每个面板都有一份</b>：开 4 个面板，Server 光历史就要 600 MB 左右。</p>
-<div class="panel"><table class="tbl"><thead><tr><th>历史行数</th><th>存活堆</th><th>每 cell</th></tr></thead><tbody>{sb_rows}</tbody></table></div>
-<p>可选做法，按改动从小到大：</p>
+<li><b>VT</b>（<code>keel-rex/third_party/vt</code>，fork 的 charmbracelet/vt，属于终端自己的领域）：整行滚动；历史改成环形缓冲，后台打包成「文本 + 压缩样式」，按 10000 行和 8 MB 双重封顶；一屏以上的整行输出（含行内 SGR、折行、CJK/emoji）直接从字节写进历史；连续文本整段写入；备用屏不再保留历史。每项都有和逐字节处理比对的随机差分测试，2000 个种子。</li>
+<li><b>Server</b>：读 PTY 和解析分两个 goroutine，到达的数据合并成大块再交给 VT。</li>
+<li><b>Server→App</b>：长连接推送，只发变化的行，二进制编码，最多 60 次/秒，锁外编码。</li>
+<li><b>App 绘制</b>：按行、按同样式的段排版，没变化的行重放上一帧录好的操作；周期性检查改用 keel 的 <code>cx.Poll</code>，只有状态变了才重绘。</li>
+<li><b>keel（底层改动都收敛在这里）</b>：
 <ul>
-<li>把默认历史行数降到 3000 左右，或者设成按总字节数封顶（GoRex 每个会话固定 8 MB）。</li>
-<li>行滚出屏幕后压缩成「文本 + 样式区间」的紧凑格式，一行只占几十到一两百字节，需要时再展开成 cell。</li>
-<li>这部分同时也是吞吐的瓶颈：纯文本负载下 Server CPU 达到 4 秒，主要花在把行推进历史上。</li>
+<li>字体：<code>theme.LoadFontsWhere</code> / <code>LoadFontFilesWhere</code> 只加载需要的字形；Shaper 首次排版时才初始化；fork 的 go-text 把系统字体改成内存映射、字形轮廓按需解析。</li>
+<li>Gio fork：Metal 缓冲区复用；staging 缓冲和离屏纹理长时间不用就收缩或释放；长段文字不进路径缓存；显示缓冲从 3 块减到 2 块。</li>
+<li><code>cx.Poll</code>：在帧之外执行的周期检查。</li>
 </ul></li>
-
-<li><b>Frame 改成推送 + 增量</b><span class="save">降低 App 峰值和空闲 CPU</span>
-<p><code>remote.go</code> 中每个面板每 45 ms 新建一次连接，用 JSON 拉取整屏 <code>[]wireCell</code> 和 <code>Plain</code> 字符串。有输出时，每一帧都要分配并解码整屏数据，App RSS 在负载期间从约 540 MB 涨到约 800 MB，空闲时仍有 4% 左右的 CPU。</p>
-<ul>
-<li>每个会话保持一条长连接，由 Server 在内容变化时推送，不再定时轮询。</li>
-<li>只发生变化的行（按行记录 revision），替换掉整屏数据。</li>
-<li>改用二进制编码（例如定长 cell + 字符串池）代替 JSON，复用解码缓冲区。</li>
-</ul></li>
-
-<li><b>限制 GC 的堆增长</b><span class="save">配合第 1 条</span>
-<p>Go GC 默认 GOGC=100，堆可以涨到存活堆的两倍。做完第 1 条以后，可以在 <code>main</code> 里加 <code>debug.SetMemoryLimit(256 &lt;&lt; 20)</code>（软上限），让空闲时堆回落得更快；Server 进程同理。这只是兜底手段，不能代替减少存活对象。</p></li>
-
-<li><b>再看 GPU 内存</b>
-<p>keel-rex App 的 footprint 里还有约 110 MB「Owned physical footprint (graphics)」，GoRex 约 11 MB。可能来自 Gio 的字形图集或离屏纹理（例如大尺寸的毛玻璃效果或阴影），建议用 Instruments 的 Metal / VM Tracker 确认后再优化。</p></li>
 </ol>
-<p class="muted">粗估：做完第 1、3 条，App 空闲 footprint 可以降到 150 MB 量级；做完第 2 条，Server 的内存会从「每面板 150 MB+」降到几十 MB。这些都是估算，改完需要重新跑一遍 benchmark 确认。</p>
+<div class="panel"><table class="tbl"><thead><tr><th>历史行数</th><th>存活堆</th><th>每 cell</th></tr></thead><tbody>{sb_rows}</tbody></table>
+<p class="muted" style="font-size:12px">memprobe 用的是同一种样式的整行文字。</p></div>
+<h3>还没追平的</h3>
+<ol class="recs">
+<li><b>App 内存（空闲 {num(ia)} MB，峰值 {num(pa)} MB）</b>：空闲时 RSS 已经和 GoRex 相当，footprint 多出来的主要是 GPU 内存和 Go 堆在大量输出后留下的余量。要再降，得把 Gio 的矢量文字改成字形图集。</li>
+<li><b>App 空闲 CPU</b>：Go 代码只占 1–2%，其余是光标闪烁时整窗重绘在 Metal 和 AppKit 里的开销。MyGo 遇到这种小改动只在 CPU 上重画一小块，keel 要做到同样的效果，需要支持局部重绘。</li>
+<li><b>Server 内存峰值</b>：大量输出时 Go 堆的临时余量，空闲时已经降到十几 MB。</li>
+</ol>
 '''
 
 

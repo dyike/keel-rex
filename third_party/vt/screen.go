@@ -363,16 +363,25 @@ func (s *Screen) DeleteLine(n int) bool {
 	// Save lines to scrollback if we're at the top of the scroll region
 	// and the scroll region uses the full width (typical terminal scroll).
 	// This captures lines that would be lost during scroll up operations.
-	if s.scrollback != nil && y == scroll.Min.Y &&
-		scroll.Min.X == 0 && scroll.Max.X == s.buf.Width() {
+	save := s.scrollback != nil && y == scroll.Min.Y &&
+		scroll.Min.X == 0 && scroll.Max.X == s.buf.Width()
+	if s.fullWidth(scroll) {
+		// The lines leaving go to the scrollback whole, and the screen
+		// takes blank ones in their place.
+		k := min(n, scroll.Max.Y-y)
+		if save {
+			for i := y; i < y+k; i++ {
+				s.scrollback.Adopt(s.buf.Lines[i])
+				s.buf.Lines[i] = s.scrollback.Blank(s.buf.Width())
+			}
+		}
+		s.rotateLines(y, scroll.Max.Y, k)
+		return true
+	}
+	if save {
 		// Save lines that will be deleted
 		linesToSave := min(n, scroll.Max.Y-y)
 		s.scrollback.PushN(s.buf, y, linesToSave)
-	}
-
-	if s.fullWidth(scroll) {
-		s.rotateLines(y, scroll.Max.Y, min(n, scroll.Max.Y-y))
-		return true
 	}
 	s.buf.DeleteLineArea(y, n, s.blankCell(), scroll)
 
@@ -418,9 +427,7 @@ func (s *Screen) rotateLines(top, bottom, n int) {
 		blank = *c
 	}
 	for _, line := range out {
-		for x := range line {
-			line[x] = blank
-		}
+		fillLine(line, &blank)
 	}
 	for y := top; y < bottom; y++ {
 		s.buf.TouchLine(0, y, len(lines[y]))
@@ -464,5 +471,17 @@ func (s *Screen) SetScrollbackSize(maxLines int) {
 		s.scrollback = NewScrollback(maxLines)
 	} else {
 		s.scrollback.SetMaxLines(maxLines)
+	}
+}
+
+// fillLine sets every cell of line to c, doubling the copied span so that the
+// copy is a few large moves rather than a store per cell.
+func fillLine(line uv.Line, c *uv.Cell) {
+	if len(line) == 0 {
+		return
+	}
+	line[0] = *c
+	for n := 1; n < len(line); n *= 2 {
+		copy(line[n:], line[:n])
 	}
 }

@@ -38,6 +38,16 @@ type Emulator struct {
 
 	// Terminal modes.
 	modes ansi.Modes
+	// textLines is scrollText's buffer of the lines it finds, cellLine its
+	// buffer for the cells of a line.
+	textLines [][]byte
+	cellLine  uv.Line
+	sgrParams ansi.Params
+	// runes caches what printing needs of the characters printed, see runeInfo.
+	runes map[rune]runeInfo
+	// autoWrap mirrors modes[ansi.ModeAutoWrap], which every printed
+	// character reads (keel-rex: a map lookup per character).
+	autoWrap bool
 
 	// The last written character.
 	lastChar rune // either ansi.Rune or ansi.Grapheme
@@ -81,6 +91,9 @@ func NewEmulator(w, h int) *Emulator {
 	t := new(Emulator)
 	t.scrs[0] = *NewScreen(w, h)
 	t.scrs[1] = *NewScreen(w, h)
+	// keel-rex: the alternate screen keeps no history; nothing reads it, and
+	// a full-screen program scrolling filled 10000 lines of it.
+	t.scrs[1].scrollback = nil
 	t.scr = &t.scrs[0]
 	t.scrs[0].cb = &t.cb
 	t.scrs[1].cb = &t.cb
@@ -271,15 +284,34 @@ func (e *Emulator) Write(p []byte) (n int, err error) {
 		return 0, io.ErrClosedPipe
 	}
 
-	for i := range p {
-		e.parser.Advance(p[i])
-		// Flush the last cluster once the whole slice is written. Every
-		// sequence handler flushes on its own way in, so a cluster only has to
-		// survive until either the next printable character extends it or the
-		// write ends.
-		if len(e.grapheme) > 0 && i == len(p)-1 {
-			e.flushGrapheme()
+	fastFrom := 0 // where scrollText may next look: past a line it refused
+	for i := 0; i < len(p); {
+		if fastPaths && fastScroll && i >= fastFrom && (p[i] == '\r' || p[i] == ansi.ESC || printableASCII(rune(p[i])) || p[i] >= 0xC2) && e.scr.cur.X == 0 && e.scr.cur.Y == e.scr.Height()-1 {
+			n, resume := e.scrollText(p[i:])
+			if n > 0 {
+				i += n
+				continue
+			}
+			fastFrom = i + max(1, resume)
 		}
+		// keel-rex: a run of text in the ground state goes to the screen a
+		// line at a time instead of a byte at a time through the parser. A
+		// pending cluster could take a non-ASCII character into it; ASCII
+		// ends it, as handlePrint has it.
+		if fastPaths && (printableASCII(rune(p[i])) || p[i] >= 0xC2 && len(e.grapheme) == 0) && e.parser.State() == parser.GroundState {
+			if j := i + e.textRun(p[i:]); j-i > 1 && e.printText(p[i:j]) {
+				i = j
+				continue
+			}
+		}
+		e.parser.Advance(p[i])
+		i++
+	}
+	// Flush the last cluster once the whole slice is written. Every sequence
+	// handler flushes on its own way in, so a cluster only has to survive
+	// until either the next printable character extends it or the write ends.
+	if len(e.grapheme) > 0 {
+		e.flushGrapheme()
 	}
 	return len(p), nil
 }
