@@ -1,14 +1,96 @@
 package ui
 
 import (
+	"fmt"
+	"image"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"gioui.org/io/input"
+	"gioui.org/io/key"
+	"gioui.org/layout"
+	"gioui.org/op"
+	"gioui.org/unit"
 	"github.com/dyike/keel/ui/el"
 	"github.com/dyike/keel/ui/window"
 )
+
+func TestGitCommitInputKeepsFocusDuringRefresh(t *testing.T) {
+	g := &gitState{root: t.TempDir(), branch: "main", editing: true, commitFocus: true,
+		files: []gitFile{{Status: "A ", Path: "new.txt"}}}
+	id := fmt.Sprintf("git-commit-%p", g)
+	var cx *el.Context
+	focusOther := false
+	root := el.Root(el.ViewFunc(func(context *el.Context) el.Element {
+		cx = context
+		if focusOther {
+			cx.Focus("other")
+			focusOther = false
+		}
+		return el.Div().Child(g.Render(cx, 740, 360), el.Input().ID("other"))
+	}))
+	var router input.Router
+	var ops op.Ops
+	now := time.Now()
+	render := func() {
+		for range 3 {
+			ops.Reset()
+			root.Layout(layout.Context{Ops: &ops, Source: router.Source(), Now: now, Metric: unit.Metric{PxPerDp: 1, PxPerSp: 1}, Constraints: layout.Exact(image.Pt(740, 420))})
+			router.Frame(&ops)
+		}
+	}
+	render()
+	if !cx.Focused(id) {
+		t.Fatal("opening commit editor did not focus the input")
+	}
+	for _, text := range []string{"fix", " 中文", " refresh"} {
+		g.busy = true // The same state entered by the periodic snapshot refresh.
+		render()
+		if !cx.Focused(id) {
+			t.Fatal("Git refresh blurred the commit input")
+		}
+		pos := len([]rune(g.commit))
+		router.Queue(key.EditEvent{Range: key.Range{Start: pos, End: pos}, Text: text})
+		render()
+		g.busy = false
+		render()
+	}
+	if g.commit != "fix 中文 refresh" {
+		t.Fatalf("lost input during refresh: %q", g.commit)
+	}
+	g.busy, g.committing = true, true
+	render()
+	if !cx.Focused(id) {
+		t.Fatal("submitting commit blurred the read-only input")
+	}
+	router.Queue(key.EditEvent{Text: "unexpected"})
+	render()
+	if g.commit != "fix 中文 refresh" {
+		t.Fatalf("accepted unsent edits during commit: %q", g.commit)
+	}
+	g.busy, g.committing = false, false
+	g.message = "hook-blocked"
+	render()
+	if !cx.Focused(id) {
+		t.Fatal("failed commit did not retain input focus")
+	}
+	pos := len([]rune(g.commit))
+	router.Queue(key.EditEvent{Range: key.Range{Start: pos, End: pos}, Text: " retry"})
+	render()
+	if g.commit != "fix 中文 refresh retry" {
+		t.Fatalf("could not resume editing after failed commit: %q", g.commit)
+	}
+	focusOther = true
+	render()
+	g.busy = true
+	render()
+	if !cx.Focused("other") {
+		t.Fatal("refresh stole focus back from another input")
+	}
+}
 
 func TestGitDisplayLine(t *testing.T) {
 	for _, tc := range []struct{ input, want string }{

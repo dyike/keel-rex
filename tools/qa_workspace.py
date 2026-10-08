@@ -70,7 +70,21 @@ try:
  open(tmp+'/change.go','w').write('package example\n\t// 中文\n')
  press('mod+o');rpc('type',text=tmp,clear=True);press('enter');command('open git changes');rpc('wait_for',text='Git file change.go');r=rpc('click',text='Stage');wait_enabled('Unstage');status=subprocess.check_output(['git','-C',tmp,'status','--porcelain']).decode();assert status.startswith('A '),status
  rpc('click',text='Unstage');wait_enabled('Stage');time.sleep(.2);assert subprocess.check_output(['git','-C',tmp,'status','--porcelain']).decode().startswith('??')
- wait_enabled('Stage all');rpc('click',text='Stage all');wait_enabled('Unstage');rpc('click',text='Commit…');r=rpc('snapshot');box=next(e for e in r['elements'] if e['role']=='textbox' and e['name']=='Commit message');rpc('type',ref=box['ref'],text='Verify real Git commit');wait_enabled('Create commit');rpc('click',text='Create commit');rpc('wait_for',text='Working tree clean');assert subprocess.check_output(['git','-C',tmp,'log','-1','--format=%s']).decode().strip()=='Verify real Git commit';print('PASS real Git stage / unstage / commit')
+ wait_enabled('Stage all');rpc('click',text='Stage all');wait_enabled('Unstage');rpc('click',text='Commit…')
+ # Type without a target ref: ref-based typing would silently refocus the box
+ # and hide regressions caused by the two-second background refresh.
+ rpc('type',text='Verify')
+ for text in [' real',' Git',' commit']:
+  time.sleep(1.6);rpc('type',text=text)
+ commit_boxes=[e for e in rpc('snapshot')['elements'] if e.get('name')=='Commit message']
+ assert len(commit_boxes)==1 and not commit_boxes[0].get('disabled'),commit_boxes
+ first_message=commit_boxes[0].get('value','')
+ # The headless driver's selection range can lag behind the editor's caret;
+ # focus coverage checks retained characters, while the Go router test checks
+ # exact text and caret ranges during refreshes.
+ assert sorted(first_message)==sorted('Verify real Git commit'),commit_boxes
+ print('PASS commit input focus across multiple automatic refreshes')
+ wait_enabled('Create commit');rpc('click',text='Create commit');rpc('wait_for',text='Working tree clean');assert subprocess.check_output(['git','-C',tmp,'log','-1','--format=%s']).decode().strip()==first_message.strip();print('PASS real Git stage / unstage / commit')
  # A file can appear in both groups; selecting each group must show its own diff.
  open(tmp+'/change.go','w').write('package example\n// INDEX_ONLY\n')
  rpc('wait_for',text='Git file change.go');rpc('click',text='Git file change.go');wait_enabled('Stage');rpc('click',text='Stage');rpc('wait_for',text='Git staged file change.go')
