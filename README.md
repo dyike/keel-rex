@@ -47,6 +47,24 @@ Git 面板将文件分为冲突、工作区变更和已暂存三组；同一文�
 | ⌥⌘Q | 确认结束所有会话并退出 |
 | Ctrl+C / Ctrl+D | 交给前台程序：中断 / EOF |
 
+## CPU 和内存监控
+
+在另一个终端运行监控工具，需要 Python 3，支持 macOS 和 Linux，无需安装依赖：
+
+```sh
+python3 tools/monitor.py
+# 每秒采样，监控 60 秒并保存 CSV（文件必须尚不存在）
+python3 tools/monitor.py --duration 60 --csv /tmp/keel-rex-usage.csv
+# 连同终端里的 shell、命令子进程一起统计
+python3 tools/monitor.py --children
+# 可执行文件改过名时指定 PID；多个进程可重复传入 --pid
+python3 tools/monitor.py --pid 12345 --pid 12346 --interval 2
+```
+
+默认自动识别 `Rex Keel`、`Rex Keel Dev`、`keel-rex` 和 `rex-server`，分别显示窗口与服务进程及合计；启动前或退出后会继续等待，新进程启动后自动加入。按 Ctrl+C 停止，并输出采样期间的合计峰值。
+
+CPU 是两次采样间累计 CPU 时间的增量，100% 表示占满一个核心，多线程可超过 100%；首次采样显示 `--`。Linux 的 `ps time` 精度通常为秒，短间隔的 CPU 数值会跳动，可用 `--interval 5` 延长采样间隔。内存显示 RSS（MiB），合计是各进程 RSS 相加，共享页可能重复计入；它与 macOS 活动监视器的内存口径不同。默认不包含 shell 和终端内运行的命令，使用 `--children` 才计入。
+
 ## 代码结构
 
 UI 和后端分别位于 `internal/ui`、`internal/backend`。UI 对象保存焦点、选区、输入法和绘制缓存，通过 `Session`、`WorkspaceService` 接口操作后端；PTY、仿真器、锁和 Unix socket 由后端对象封装。后端通过订阅通道报告状态变化，UI 在自己的事件循环中安排重绘。
