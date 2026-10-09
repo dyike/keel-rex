@@ -39,8 +39,8 @@ func Run(options Options) {
 	if e != nil {
 		log.Fatal(e)
 	}
-	// macOS maps its fonts and retains only the two PingFang SC faces used by
-	// the UI. Windows prepares in-memory font data without legacy bitmap
+	// macOS maps its system fonts and retains only the needed Chinese faces.
+	// Windows prepares in-memory font data without legacy bitmap
 	// strikes. Font preparation runs alongside session startup; installation
 	// completes on the UI thread before its first frame.
 	fonts := platformFontFiles()

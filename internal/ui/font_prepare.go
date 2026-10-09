@@ -14,10 +14,7 @@ import (
 // frame. Windows text fonts need their legacy bitmap strikes disabled: Gio
 // skips BlackAndWhite bitmaps, even when the glyph also has a usable outline.
 func prepareAppFonts(platform string, paths []string) (func() error, error) {
-	keep := func(f font.Font) bool {
-		return !strings.HasPrefix(string(f.Typeface), "PingFang") ||
-			f.Typeface == "PingFang SC" && (f.Weight == font.Normal || f.Weight == font.SemiBold)
-	}
+	keep := keepAppFont
 	if platform != "windows" {
 		set, err := theme.PrepareFontFiles(keep, paths...)
 		if err != nil {
@@ -37,6 +34,23 @@ func prepareAppFonts(platform string, paths []string) (func() error, error) {
 		files = append(files, data)
 	}
 	return func() error { return theme.LoadFontsWhere(keep, files...) }, nil
+}
+
+// Avoid loading every regional face of a large system TTC collection.
+func keepAppFont(f font.Font) bool {
+	if strings.HasPrefix(string(f.Typeface), "PingFang") {
+		return f.Typeface == "PingFang SC" && (f.Weight == font.Normal || f.Weight == font.SemiBold)
+	}
+	switch f.Typeface {
+	case "Heiti TC", ".Hiragino Sans GB Interface":
+		return false
+	case "Hiragino Sans GB":
+		return f.Weight == font.Light || f.Weight == font.SemiBold
+	case "Heiti SC":
+		return f.Weight == font.Normal
+	default:
+		return true
+	}
 }
 
 // Only the in-memory SFNT table directory is changed; installed font files
