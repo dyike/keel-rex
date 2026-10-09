@@ -39,6 +39,10 @@ func TestDesktopPlatformMenusAndShortcuts(t *testing.T) {
 				t.Fatal(err)
 			}
 			if platform == "windows" {
+				options := desktopChrome.windowOptions(window.Options{})
+				if !options.Frameless || options.NativeTrafficLights || options.MenuDisplay != window.MenuDisplayHidden || !desktopChrome.windowControls {
+					t.Fatal("Windows must use the integrated tab bar without a title or menu row")
+				}
 				for i, title := range []string{"File", "Edit", "View", "Tabs", "Help"} {
 					if menus[i].Title != title {
 						t.Fatalf("menu %d: %q, want %q", i, menus[i].Title, title)

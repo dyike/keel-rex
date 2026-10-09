@@ -10,17 +10,25 @@ import (
 	"math"
 )
 
-func (a *app) renderTabs(cx *el.Context, root *el.DivEl, w float32) {
-	c := a.colors()
-	left := desktopChrome.tabsLeft()
-	width := max(float32(0), w-left-82)
+func (a *app) tabStripLayout(w float32) (gap, rowWidth, tabWidth float32) {
+	width := max(float32(0), desktopChrome.toolbarRight(w)-desktopChrome.tabsLeft()-82)
 	count := len(a.tabs)
 	if count == 0 {
 		return
 	}
-	gap := min(float32(2), width/float32(count)*.1)
-	rowWidth := min(max(float32(0), width-6), float32(count)*240+float32(count-1)*gap)
-	tabWidth := max(float32(0), (rowWidth-float32(count-1)*gap)/float32(count))
+	gap = min(float32(2), width/float32(count)*.1)
+	rowWidth = min(max(float32(0), width-6), float32(count)*240+float32(count-1)*gap)
+	tabWidth = max(float32(0), (rowWidth-float32(count-1)*gap)/float32(count))
+	return
+}
+
+func (a *app) renderTabs(cx *el.Context, root *el.DivEl, w float32) {
+	if len(a.tabs) == 0 {
+		return
+	}
+	c := a.colors()
+	left := desktopChrome.tabsLeft()
+	gap, rowWidth, tabWidth := a.tabStripLayout(w)
 	padding := min(float32(8), max(float32(0), (tabWidth-16)/2))
 	contentGap := min(float32(8), max(float32(0), (tabWidth-40)/4))
 	frameColor, edgeColor, hoverColor := c.track, c.border, c.hover

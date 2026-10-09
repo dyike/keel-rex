@@ -66,7 +66,7 @@ func TestTabsFitWithoutHorizontalScroll(t *testing.T) {
 							if len(bounds) != count {
 								t.Fatalf("visible tabs: %d want %d", len(bounds), count)
 							}
-							right := int(float32(width-82) * scale)
+							right := int((desktopChrome.toolbarRight(float32(width)) - 82) * scale)
 							previous := int(desktopChrome.tabsLeft() * scale)
 							for i, b := range bounds {
 								if b.Dx() <= 0 || b.Min.X < previous || b.Max.X > right {

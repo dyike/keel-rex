@@ -3,7 +3,6 @@ package ui
 
 import (
 	"fmt"
-	"gioui.org/io/system"
 	"gioui.org/op/clip"
 	"github.com/dyike/keel-rex/internal/backend"
 	"github.com/dyike/keel/ui/core"
@@ -320,43 +319,7 @@ func (a *app) Render(cx *el.Context) el.Element {
 		return changed
 	})
 	root := el.Div().W(el.Dp(w)).H(el.Dp(h)).Child(el.Widget(&chrome{a}))
-	button := func(name string, x, y, ww, hh float32, fn func()) *el.DivEl {
-		b := el.Div().Absolute().Left(x).Top(y).W(el.Dp(ww)).H(el.Dp(hh)).Rounded(5).Role("button").Name(name).OnClick(fn).Hover(func(s *el.Style) { s.Bg(a.colors().hover) })
-		icon := ""
-		if name == "New terminal tab" {
-			icon = "plus"
-		}
-		if name == "Command palette" {
-			icon = desktopChrome.paletteIcon
-		}
-		if icon != "" {
-			b.Child(el.Widget(core.Func(func(gtx core.C) core.D {
-				p := painter{gtx, gtx.Metric.PxPerDp}
-				size := float32(17)
-				if icon == "plus" {
-					size = 19
-				}
-				p.symbol(icon, (ww-size)/2, (hh-size)/2, size, size)
-				return core.D{Size: gtx.Constraints.Max}
-			})))
-		}
-		return b
-	}
-	if desktopChrome.trafficLights {
-		// Keep native drag areas outside the host chip, tabs and toolbar buttons.
-		for _, rail := range []paneRect{{0, 0, w, 5}, {0, 41, w, 5}, {78, 5, 11, 36}} {
-			r := rail
-			root.Child(el.Div().Absolute().Left(r.X).Top(r.Y).W(el.Dp(r.W)).H(el.Dp(r.H)).Decorate(func(gtx core.C, draw func()) {
-				defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
-				system.ActionInputOp(system.ActionMove).Add(gtx.Ops)
-				draw()
-			}))
-		}
-	}
-
-	a.renderTabs(cx, root, w)
-	root.Child(el.Div().ID("host-chip").Absolute().Left(desktopChrome.hostLeft).Top(5).W(el.Dp(110)).H(el.Dp(34)).Role("button").Name("Host information").OnClick(a.toggleHostInfo))
-	root.Child(button("New terminal tab", w-37, 9, 28, 27, a.newTab), button("Command palette", w-72, 9, 29, 27, a.openPalette))
+	a.renderHeader(cx, root, w)
 	space := a.tabs[a.active]
 	if space.zoom && a.focused != nil {
 		root.Child(a.pane(cx, a.focused, 8, 46, w-16, h-54))
@@ -472,7 +435,7 @@ func (c *chrome) Layout(gtx core.C) core.D {
 	}
 	a := c.a
 	left := desktopChrome.hostLeft
-	hostClip := clip.Rect(image.Rect(int(left*sc), 0, int((left+110)*sc), int(44*sc))).Push(gtx.Ops)
+	hostClip := clip.Rect(image.Rect(int(left*sc), 0, int((left+desktopChrome.hostWidth())*sc), int(44*sc))).Push(gtx.Ops)
 	p.symbol("device", left+6, 13, 18, 16)
 	p.label(hostname(), left+33, 21, 13, a.colors().text, false, true)
 	p.label(a.hostModel, left+33, 33, 10, a.colors().muted, false, false)
