@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"gioui.org/font"
 	"github.com/dyike/keel-rex/internal/backend"
 	"github.com/dyike/keel/ui/core"
 	"github.com/dyike/keel/ui/el"
@@ -11,7 +10,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
+	"runtime"
 )
 
 // Options contains presentation and workspace choices from the launcher.
@@ -40,24 +39,24 @@ func Run(options Options) {
 	if e != nil {
 		log.Fatal(e)
 	}
-	// The fonts are mapped, not read, and of PingFang.ttc's two dozen faces,
-	// 16 MB each once parsed, only the two the interface and terminal draw
-	// Chinese in are kept. Parsing them and making the shaper takes tens of
-	// milliseconds, which go on beside starting the session server and
-	// opening the window.
+	// macOS maps its fonts and retains only the two PingFang SC faces used by
+	// the UI. Windows prepares in-memory font data without legacy bitmap
+	// strikes. Font preparation runs alongside session startup; installation
+	// completes on the UI thread before its first frame.
 	fonts := platformFontFiles()
-	fontSet := make(chan *theme.FontSet, 1)
+	fontSet := make(chan func() error, 1)
 	go func() {
-		set, e := theme.PrepareFontFiles(func(f font.Font) bool {
-			return !strings.HasPrefix(string(f.Typeface), "PingFang") ||
-				f.Typeface == "PingFang SC" && (f.Weight == font.Normal || f.Weight == font.SemiBold)
-		}, fonts...)
+		set, e := prepareAppFonts(runtime.GOOS, fonts)
 		if e != nil {
 			log.Fatal(e)
 		}
 		fontSet <- set
 	}()
-	useFonts := func() { (<-fontSet).Use() }
+	useFonts := func() {
+		if err := (<-fontSet)(); err != nil {
+			log.Fatal(err)
+		}
+	}
 	theme.Material.Face = uiFontFace
 	mark("fonts")
 	var a *app

@@ -18,4 +18,4 @@ jobs:
       - name: Exercise ConPTY, detached service, index-only commits and locking
         run: go test ./internal/backend -run 'TestWindows|TestSessionAppearance|TestSessionServerLock|TestShellNames|TestRepositorySeparatesIndex' -count=1 -timeout=120s
       - name: Check commit editor focus
-        run: go test ./internal/ui -run 'TestGitCommitInputKeepsFocusDuringRefresh|TestDesktopPlatformMenusAndShortcuts|TestTabsFitWithoutHorizontalScroll' -count=1
+        run: go test ./internal/ui -run 'TestGitCommitInputKeepsFocusDuringRefresh|TestDesktopPlatformMenusAndShortcuts|TestTabsFitWithoutHorizontalScroll|TestWindowsFontOutlines|TestIntegratedWindowsHeader' -count=1

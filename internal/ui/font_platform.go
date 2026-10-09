@@ -15,7 +15,7 @@ func platformFontFamilies(platform string) (font.Typeface, font.Typeface) {
 	case "darwin":
 		return "Helvetica Neue", "Menlo"
 	case "windows":
-		return "Segoe UI", "Consolas"
+		return "Segoe UI, Microsoft YaHei, Microsoft YaHei UI, SimSun", "Consolas, Microsoft YaHei, Microsoft YaHei UI, SimSun"
 	default:
 		return "Go", "Go Mono"
 	}
@@ -36,7 +36,7 @@ func platformFontFiles() []string {
 			root = os.Getenv("SystemRoot")
 		}
 		var fonts []string
-		for _, name := range []string{"consola.ttf", "consolab.ttf", "segoeui.ttf", "segoeuib.ttf", "msyh.ttc", "msyhbd.ttc", "seguiemj.ttf"} {
+		for _, name := range []string{"consola.ttf", "consolab.ttf", "segoeui.ttf", "segoeuib.ttf", "msyh.ttc", "msyhbd.ttc", "simsun.ttc", "seguiemj.ttf"} {
 			path := filepath.Join(root, "Fonts", name)
 			if info, err := os.Stat(path); err == nil && !info.IsDir() {
 				fonts = append(fonts, path)
