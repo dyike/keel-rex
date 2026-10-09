@@ -9,8 +9,6 @@ import (
 	"gioui.org/f32"
 	"gioui.org/font"
 	"gioui.org/op"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
 	"gioui.org/text"
 	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/dyike/keel/ui/core"
@@ -38,6 +36,7 @@ type rowPaint struct {
 	call  op.CallOp
 	runes []int
 	glyph []text.Glyph
+	runs  []theme.GlyphRun
 }
 
 // rowKey is everything a row's drawing depends on.
@@ -48,6 +47,7 @@ type rowKey struct {
 	fg, panel, selection color.NRGBA
 	selLo, selHi         int // selected columns, -1 when none
 	adaptCodex           bool
+	shaper               *text.Shaper
 }
 
 // paintRows draws the cells, row by row, replaying the rows that did not
@@ -69,21 +69,34 @@ func (t *terminal) paintRows(gtx core.C, scale, cw, ch, size float32) {
 	// Codex caches its terminal palette at startup. Its explicit composer
 	// backgrounds and footer colors can outlive a terminal theme change.
 	adaptCodex := strings.EqualFold(t.viewFrame.Program, "codex")
+	t.glyphRenderer.BeginFrame(theme.Material.Shaper)
 	for y := 0; y < t.rows; y++ {
 		key := rowKey{version: t.rowVersions[y], cols: t.cols, cw: cw, ch: ch, size: size, scale: scale, fg: fg, panel: panel, selection: selection, selLo: -1, selHi: -1}
 		key.adaptCodex = adaptCodex
+		key.shaper = theme.Material.Shaper
 		if start, end := (t.viewStart+y)*t.cols, (t.viewStart+y+1)*t.cols-1; selecting && hi >= start && lo <= end {
 			key.selLo, key.selHi = max(lo, start)-start, min(hi, end)-start
 		}
 		rp := &t.rowPaints[y]
 		if !rp.ok || rp.key != key {
+			rp.key, rp.ok = key, false
+			t.prepareRow(rp, y, key)
+		}
+		for _, run := range rp.runs {
+			t.glyphRenderer.Prepare(run)
+		}
+	}
+	t.glyphRenderer.Commit()
+	for y := 0; y < t.rows; y++ {
+		rp := &t.rowPaints[y]
+		if !rp.ok {
 			rp.ops.Reset()
 			rec := gtx
 			rec.Ops = &rp.ops
 			m := op.Record(rec.Ops)
-			t.paintRow(painter{rec, scale}, rp, y, key)
+			t.paintRow(painter{rec, scale}, rp, y, rp.key)
 			rp.call = m.Stop()
-			rp.key, rp.ok = key, true
+			rp.ok = true
 		}
 		rp.call.Add(gtx.Ops)
 	}
@@ -150,7 +163,35 @@ func (t *terminal) paintRow(p painter, rp *rowPaint, y int, key rowKey) {
 		}
 		x = end
 	}
-	// Text, a run of cells of one color and weight shaped at once.
+	for _, run := range rp.runs {
+		t.glyphRenderer.Paint(p.gtx.Ops, run)
+	}
+	// Underlines, a line per run of one color.
+	for x := 0; x < len(row); {
+		if row[x].Style.Underline == 0 {
+			x++
+			continue
+		}
+		fg, _ := cellColors(&row[x], key, selected(x))
+		end := x + 1
+		for end < len(row) && row[end].Style.Underline != 0 {
+			if f, _ := cellColors(&row[end], key, selected(end)); f != fg {
+				break
+			}
+			end++
+		}
+		p.line(float32(x)*cw, yy+ch-2, cw*float32(end-x), .7, fg)
+		x = end
+	}
+}
+
+// Prepare all visible runs before painting so Keel can upload changed atlas
+// pages once per frame. Retain row glyphs while the row's inputs are unchanged.
+func (t *terminal) prepareRow(rp *rowPaint, y int, key rowKey) {
+	rp.glyph = rp.glyph[:0]
+	rp.runs = rp.runs[:0]
+	row := t.cells[y*t.cols : (y+1)*t.cols]
+	selected := func(x int) bool { return key.selLo >= 0 && x >= key.selLo && x <= key.selHi }
 	drawn := func(c *uv.Cell) bool { return c.Width > 0 && c.Content != "" && c.Content != " " }
 	for x := 0; x < len(row); {
 		c := &row[x]
@@ -173,32 +214,15 @@ func (t *terminal) paintRow(p painter, rp *rowPaint, y int, key rowKey) {
 			last = end
 			end++
 		}
-		p.cellRun(rp, row[x:last+1], float32(x)*cw, yy+key.size, cw, key.size, fg, bold)
+		rp.prepareRun(row[x:last+1], float32(x)*key.cw, float32(y)*key.ch+key.size, key, fg, bold)
 		x = last + 1
-	}
-	// Underlines, a line per run of one color.
-	for x := 0; x < len(row); {
-		if row[x].Style.Underline == 0 {
-			x++
-			continue
-		}
-		fg, _ := cellColors(&row[x], key, selected(x))
-		end := x + 1
-		for end < len(row) && row[end].Style.Underline != 0 {
-			if f, _ := cellColors(&row[end], key, selected(end)); f != fg {
-				break
-			}
-			end++
-		}
-		p.line(float32(x)*cw, yy+ch-2, cw*float32(end-x), .7, fg)
-		x = end
 	}
 }
 
-// cellRun draws the text of cells, from x and the baseline y, as label does
+// prepareRun shapes the text of cells, from x and the baseline y, as label does
 // for one cell, with each glyph moved to its cell: CJK glyphs are narrower
 // than two cells and emoji wider than their font's advance.
-func (p painter) cellRun(rp *rowPaint, cells []uv.Cell, x, y, cw, size float32, c color.NRGBA, bold bool) {
+func (rp *rowPaint) prepareRun(cells []uv.Cell, x, y float32, key rowKey, c color.NRGBA, bold bool) {
 	var b strings.Builder
 	rp.runes = rp.runes[:0]
 	for i := range cells {
@@ -216,13 +240,16 @@ func (p painter) cellRun(rp *rowPaint, cells []uv.Cell, x, y, cw, size float32, 
 		weight = font.Bold
 	}
 	sh := theme.Material.Shaper
-	px := size * p.scale
-	sh.LayoutString(text.Parameters{Font: font.Font{Typeface: terminalFontFace + ", " + theme.EmojiFace, Weight: weight}, PxPerEm: fixed.Int26_6(px * 64), MaxWidth: 1 << 24}, b.String())
-	gs := rp.glyph[:0]
+	px := key.size * key.scale
+	params := text.Parameters{Font: font.Font{Typeface: terminalFontFace + ", " + theme.EmojiFace, Weight: weight}, PxPerEm: fixed.Int26_6(px * 64), MaxWidth: 1 << 24}
+	sh.LayoutString(params, b.String())
+	offset := len(rp.glyph)
+	gs := rp.glyph
 	for g, ok := sh.NextGlyph(); ok; g, ok = sh.NextGlyph() {
 		gs = append(gs, g)
 	}
 	rp.glyph = gs
+	gs = gs[offset:]
 	if len(gs) == 0 {
 		return
 	}
@@ -238,20 +265,12 @@ func (p painter) cellRun(rp *rowPaint, cells []uv.Cell, x, y, cw, size float32, 
 			col = rp.runes[r]
 		}
 		base := gs[start].X
-		at := fixed.Int26_6(float32(col) * cw * p.scale * 64)
+		at := fixed.Int26_6(float32(col) * key.cw * key.scale * 64)
 		for k := start; k <= i; k++ {
 			gs[k].X = at + gs[k].X - base
 		}
 		r += int(gs[i].Runes)
 		start = i + 1
 	}
-	tr := op.Affine(f32.AffineId().Offset(f32.Pt(x*p.scale, y*p.scale))).Push(p.gtx.Ops)
-	paint.ColorOp{Color: c}.Add(p.gtx.Ops)
-	shape := clip.Outline{Path: sh.Shape(gs)}.Op().Push(p.gtx.Ops)
-	paint.PaintOp{}.Add(p.gtx.Ops)
-	shape.Pop()
-	if bitmap := sh.Bitmaps(gs); bitmap != (op.CallOp{}) {
-		bitmap.Add(p.gtx.Ops)
-	}
-	tr.Pop()
+	rp.runs = append(rp.runs, theme.GlyphRun{Params: params, Glyphs: gs, Color: c, Position: f32.Pt(x*key.scale, y*key.scale)})
 }

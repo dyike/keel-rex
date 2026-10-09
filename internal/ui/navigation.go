@@ -149,6 +149,7 @@ func (a *app) restartFocused() {
 			a.notice = "Could not restart session: " + err.Error()
 			return
 		}
+		p.term.glyphRenderer.Release()
 		p.term.session.Close()
 		fresh := newPane(a, dir)
 		p.term, p.err = fresh.term, fresh.err

@@ -10,7 +10,7 @@ require (
 	github.com/charmbracelet/x/term v0.2.2
 	github.com/charmbracelet/x/vt v0.0.0-20261004011457-ad85c59fdf4e
 	github.com/creack/pty v1.1.24
-	github.com/dyike/keel v0.1.8
+	github.com/dyike/keel v0.1.9
 	github.com/go-text/typesetting v0.3.5
 	golang.org/x/image v0.46.0
 	golang.org/x/sys v0.48.0
@@ -40,8 +40,6 @@ require (
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 )
-
-// Local Keel checkout includes the native traffic-light layout API.
 
 tool github.com/dyike/keel/cmd/keel
 

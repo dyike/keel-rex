@@ -46,6 +46,7 @@ type terminal struct {
 	cells                  []uv.Cell
 	rowVersions            []uint64 // of the rows in cells, see session.syncRows
 	rowPaints              []rowPaint
+	glyphRenderer          theme.GlyphRenderer
 	plain                  string
 	initialFocus           bool
 	inputEnabled           bool

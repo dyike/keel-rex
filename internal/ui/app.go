@@ -154,6 +154,7 @@ func (p *pane) each(fn func(*pane)) {
 func (p *pane) close() {
 	p.each(func(p *pane) {
 		if p.term != nil {
+			p.term.glyphRenderer.Release()
 			p.term.session.Close()
 		}
 	})
@@ -271,6 +272,7 @@ func (a *app) close() {
 	for _, t := range a.tabs {
 		t.root.each(func(p *pane) {
 			if p.term != nil {
+				p.term.glyphRenderer.Release()
 				p.term.session.Detach()
 			}
 		})

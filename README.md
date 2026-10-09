@@ -121,9 +121,11 @@ go run . -end-sessions
 
 ## 开发与验证
 
-需要 Go 1.26；macOS 还需要 Xcode Command Line Tools。Keel 和终端依赖版本由 `go.mod` 管理。macOS 的 `keel run` 使用带图标资源的临时应用包，退出时清理；热重载和 `-watch=false` 使用同一启动方式。
+需要 Go 1.26；macOS 还需要 Xcode Command Line Tools。项目使用已发布的 Keel v0.1.9，依赖版本由 `go.mod` 管理。macOS 的 `keel run` 使用带图标资源的临时应用包，退出时清理；热重载和 `-watch=false` 使用同一启动方式。
 
 `go tool keel` 使用 `go.mod` 固定的 CLI 版本。本地修改 Keel CLI 后，在 Keel 仓库执行 `go install ./cmd/keel`，再在本项目运行 `keel run`。
+
+终端保留格子排布和行缓存，字形图片、位置处理与复杂文字回退通过 Keel 的 `theme.GlyphRenderer` 完成。关闭面板、重启会话、转为 Git 面板或关闭窗口时释放绘制资源。[滚动渲染基准](tools/bench/README.md#终端渲染回归)记录 CPU、Go 堆和物理内存，公共缓存回归位于 Keel 的 `ui/theme`。
 
 ```sh
 go test -race ./...

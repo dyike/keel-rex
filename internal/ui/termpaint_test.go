@@ -244,7 +244,7 @@ func TestRowPaintMatchesCellPaint(t *testing.T) {
 	s.SyncRows(0, term.cols, term.rows, &term.cells, &term.rowVersions)
 	term.anchor, term.caret, term.hasSelection = 3*60+2, 4*60+12, true
 	dir := t.TempDir()
-	for _, scale := range []float32{1, 2} {
+	for _, scale := range []float32{1, 1.25, 2} {
 		a, b := filepath.Join(dir, fmt.Sprintf("cells-%g.png", scale)), filepath.Join(dir, fmt.Sprintf("rows-%g.png", scale))
 		if err := window.ScreenshotAtScale(cellPainter{term}, 480, 140, scale, a); err != nil {
 			t.Fatal(err)
