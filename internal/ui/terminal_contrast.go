@@ -37,3 +37,38 @@ func readableDefaultForeground(fg, bg color.NRGBA) color.NRGBA {
 	}
 	return dark
 }
+
+// Remap stale neutral composer/message backgrounds only when they belong to
+// the opposite appearance. Colored diff and syntax backgrounds stay intact.
+func codexBackground(bg, panel color.NRGBA) color.NRGBA {
+	if bg.A != 255 || max(bg.R, bg.G, bg.B)-min(bg.R, bg.G, bg.B) > 32 {
+		return bg
+	}
+	if (luminance(bg) < .4) == (luminance(panel) < .4) {
+		return bg
+	}
+	if luminance(panel) < .4 {
+		return rgb(0x373c42)
+	}
+	return rgb(0xe8ebed)
+}
+
+// Keep hue while giving cached Codex footer colors enough contrast on the
+// current surface. Other terminal programs retain their exact ANSI colors.
+func readableCodexForeground(fg, bg color.NRGBA) color.NRGBA {
+	if bg.A != 255 || contrast(fg, bg) >= 4.5 {
+		return fg
+	}
+	target := rgb(0x000000)
+	if contrast(rgb(0xffffff), bg) > contrast(target, bg) {
+		target = rgb(0xffffff)
+	}
+	for step := 1; step <= 20; step++ {
+		mix := func(a, b uint8) uint8 { return uint8((int(a)*(20-step) + int(b)*step) / 20) }
+		candidate := color.NRGBA{R: mix(fg.R, target.R), G: mix(fg.G, target.G), B: mix(fg.B, target.B), A: fg.A}
+		if contrast(candidate, bg) >= 4.5 {
+			return candidate
+		}
+	}
+	return target
+}

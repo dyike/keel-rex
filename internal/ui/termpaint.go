@@ -47,6 +47,7 @@ type rowKey struct {
 	cw, ch, size, scale  float32
 	fg, panel, selection color.NRGBA
 	selLo, selHi         int // selected columns, -1 when none
+	adaptCodex           bool
 }
 
 // paintRows draws the cells, row by row, replaying the rows that did not
@@ -65,8 +66,12 @@ func (t *terminal) paintRows(gtx core.C, scale, cw, ch, size float32) {
 	}
 	lo, hi := min(t.anchor, t.caret), max(t.anchor, t.caret)
 	selecting := t.hasSelection || hi > lo
+	// Codex caches its terminal palette at startup. Its explicit composer
+	// backgrounds and footer colors can outlive a terminal theme change.
+	adaptCodex := strings.EqualFold(t.viewFrame.Program, "codex")
 	for y := 0; y < t.rows; y++ {
 		key := rowKey{version: t.rowVersions[y], cols: t.cols, cw: cw, ch: ch, size: size, scale: scale, fg: fg, panel: panel, selection: selection, selLo: -1, selHi: -1}
+		key.adaptCodex = adaptCodex
 		if start, end := (t.viewStart+y)*t.cols, (t.viewStart+y+1)*t.cols-1; selecting && hi >= start && lo <= end {
 			key.selLo, key.selHi = max(lo, start)-start, min(hi, end)-start
 		}
@@ -92,6 +97,9 @@ func cellColors(c *uv.Cell, key rowKey, selected bool) (fg, bg color.NRGBA) {
 	}
 	if c.Style.Bg != nil {
 		bg = color.NRGBAModel.Convert(c.Style.Bg).(color.NRGBA)
+		if key.adaptCodex {
+			bg = codexBackground(bg, key.panel)
+		}
 		if c.Style.Fg == nil {
 			// A TUI can retain its explicit input background across theme
 			// changes while its default foreground follows the terminal.
@@ -109,6 +117,13 @@ func cellColors(c *uv.Cell, key rowKey, selected bool) (fg, bg color.NRGBA) {
 		if c.Style.Fg == nil && c.Style.Attrs&uv.AttrReverse == 0 {
 			fg = readableDefaultForeground(key.fg, bg)
 		}
+	}
+	if key.adaptCodex {
+		background := bg
+		if background.A == 0 {
+			background = key.panel
+		}
+		fg = readableCodexForeground(fg, background)
 	}
 	return fg, bg
 }

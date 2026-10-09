@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	uv "github.com/charmbracelet/ultraviolet"
+	"github.com/dyike/keel-rex/internal/backend"
 	"github.com/dyike/keel/ui/core"
 	"github.com/dyike/keel/ui/window"
 )
@@ -109,7 +110,87 @@ func TestTerminalThemeSwitchKeepsInputReadable(t *testing.T) {
 	}
 }
 
+func TestCodexCachedPaletteFollowsAppearance(t *testing.T) {
+	for _, startedDark := range []bool{false, true} {
+		a := &app{prefs: defaultPreferences()}
+		term := &terminal{owner: a, cols: 32, rows: 3, rowVersions: []uint64{1, 1, 1}, cells: make([]uv.Cell, 96), viewFrame: backend.Frame{Program: "codex"}}
+		input, gold, green := rgb(0xe3e6e8), rgb(0x85611f), rgb(0x247434)
+		if startedDark {
+			input, gold, green = rgb(0x373c42), rgb(0xf6dfa6), rgb(0xa6e3a1)
+		}
+		for row, text := range []string{"Ask Codex to do anything", "GPT-6.1-Sol high", "~/Code/keel-rex"} {
+			for col := range term.cols {
+				cell := uv.Cell{Content: " ", Width: 1}
+				if col < len(text) {
+					cell.Content = string(text[col])
+				}
+				if row == 0 {
+					cell.Style.Bg = input
+				} else if row == 1 {
+					cell.Style.Fg = gold
+				} else {
+					cell.Style.Fg = green
+				}
+				term.cells[row*term.cols+col] = cell
+			}
+		}
+		for i, appearance := range []string{"dark", "light", "dark", "light"} {
+			a.prefs.Appearance = appearance
+			path := filepath.Join(t.TempDir(), fmt.Sprintf("codex-start-dark-%v-switch-%d-%s.png", startedDark, i, appearance))
+			if err := window.ScreenshotAtScale(codexRows{fullRowPainter{rowPainter{term}}}, 241, 48, 2, path); err != nil {
+				t.Fatal(err)
+			}
+			img := readPNG(t, path)
+			background := color.NRGBAModel.Convert(img.At(470, 16)).(color.NRGBA)
+			if (luminance(background) < .4) != (appearance == "dark") {
+				t.Fatalf("%s kept the opposite composer background: %v", appearance, background)
+			}
+			for row := range term.rows {
+				bg := a.colors().panel
+				if row == 0 {
+					bg = background
+				}
+				best := 0.0
+				for y := row*32 + 2; y < (row+1)*32-2; y++ {
+					for x := 0; x < 200; x++ {
+						pixel := color.NRGBAModel.Convert(img.At(x, y)).(color.NRGBA)
+						best = max(best, contrast(pixel, bg))
+					}
+				}
+				fg, _ := cellColors(&term.cells[row*term.cols], rowKey{fg: a.colors().text, panel: a.colors().panel, adaptCodex: true}, false)
+				if contrast(fg, bg) < 4.5 || best < 4.5 {
+					t.Fatalf("%s row %d text lost contrast: color %.2f pixels %.2f", appearance, row, contrast(fg, bg), best)
+				}
+			}
+			keep(t, path)
+		}
+		before := append([]uv.Cell(nil), term.cells...)
+		term.viewFrame.Program = "zsh"
+		path := filepath.Join(t.TempDir(), "shell-original-colors.png")
+		if err := window.ScreenshotAtScale(fullRowPainter{rowPainter{term}}, 241, 48, 2, path); err != nil {
+			t.Fatal(err)
+		}
+		if term.rowPaints[0].key.adaptCodex {
+			t.Fatal("Codex compatibility persisted after returning to the shell")
+		}
+		for i := range term.cells {
+			if term.cells[i].Style != before[i].Style {
+				t.Fatal("theme compatibility changed the terminal's stored ANSI colors")
+			}
+		}
+	}
+}
+
 type rowPainter struct{ t *terminal }
+
+type codexRows struct{ fullRowPainter }
+
+func (c codexRows) Layout(gtx core.C) core.D {
+	scale := gtx.Metric.PxPerDp
+	size := gtx.Constraints.Max
+	painter{gtx, scale}.rect(0, 0, float32(size.X)/scale, float32(size.Y)/scale, 0, c.t.owner.colors().panel)
+	return c.fullRowPainter.Layout(gtx)
+}
 
 type fullRowPainter struct{ rowPainter }
 
