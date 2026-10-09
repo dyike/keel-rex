@@ -47,7 +47,9 @@ def read_processes():
 
 def is_rex(executable):
     name = Path(executable).name
-    return name in {"Rex Keel", "Rex Keel Dev", "keel-rex", "rex-server"}
+    return name in {"Rex Keel", "Rex Keel Dev", "keel-rex", "rex-keel", "rex-server"} or bool(
+        re.fullmatch(r"rex-keel-\d+", name)
+    )
 
 
 def select_processes(processes, pids, children):

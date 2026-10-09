@@ -61,7 +61,7 @@ python3 tools/monitor.py --children
 python3 tools/monitor.py --pid 12345 --pid 12346 --interval 2
 ```
 
-默认自动识别 `Rex Keel`、`Rex Keel Dev`、`keel-rex` 和 `rex-server`，分别显示窗口与服务进程及合计；启动前或退出后会继续等待，新进程启动后自动加入。按 Ctrl+C 停止，并输出采样期间的合计峰值。
+默认自动识别 `Rex Keel`、`Rex Keel Dev`、`keel-rex`、`rex-server` 和 `keel run` 使用的 `rex-keel`（含带数字后缀的临时程序），分别显示窗口与服务进程及合计；启动前或退出后会继续等待，新进程启动后自动加入。按 Ctrl+C 停止，并输出采样期间的合计峰值。
 
 CPU 是两次采样间累计 CPU 时间的增量，100% 表示占满一个核心，多线程可超过 100%；首次采样显示 `--`。Linux 的 `ps time` 精度通常为秒，短间隔的 CPU 数值会跳动，可用 `--interval 5` 延长采样间隔。内存显示 RSS（MiB），合计是各进程 RSS 相加，共享页可能重复计入；它与 macOS 活动监视器的内存口径不同。默认不包含 shell 和终端内运行的命令，使用 `--children` 才计入。
 
