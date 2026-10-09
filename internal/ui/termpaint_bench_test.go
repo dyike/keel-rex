@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -23,6 +24,19 @@ import (
 // Keep one renderer alive while every row changes, as it does during scrolling.
 // Recreating a screenshot window for each frame hides retained GPU resources.
 func BenchmarkTerminalScrolling(b *testing.B) {
+	benchmarkTerminalScrolling(b, 12.5)
+}
+
+// Match the larger font used by the local application. Its fractional row
+// baselines exercise a different renderer path from the default 12.5 size.
+func BenchmarkTerminalScrollingLargeFont(b *testing.B) {
+	b.Run("Fractional22_5", func(b *testing.B) { benchmarkTerminalScrolling(b, 22.5) })
+	// The larger 25 size has integral baselines at 2x. Comparing it with
+	// 22.5 distinguishes baseline fallback from simply drawing larger text.
+	b.Run("Integral25", func(b *testing.B) { benchmarkTerminalScrolling(b, 25) })
+}
+
+func benchmarkTerminalScrolling(b *testing.B, fontSize float32) {
 	install, err := prepareAppFonts(runtime.GOOS, platformFontFiles())
 	if err != nil {
 		b.Fatal(err)
@@ -35,9 +49,13 @@ func BenchmarkTerminalScrolling(b *testing.B) {
 			const cols, rows = 127, 31
 			const scale float32 = 2
 			a := &app{prefs: defaultPreferences()}
+			a.prefs.FontSize = fontSize
 			term := &terminal{owner: a, cols: cols, rows: rows, cells: make([]uv.Cell, cols*rows), rowVersions: make([]uint64, rows)}
 			defer term.glyphRenderer.Release()
 			size := image.Pt(1912, 992)
+			if fontSize != 12.5 {
+				size = image.Pt(int(math.Ceil(float64(cols*fontSize*.60208*scale))), int(math.Ceil(float64(rows*fontSize*1.28*scale))))
+			}
 			win, err := headless.NewWindow(size.X, size.Y)
 			if err != nil {
 				b.Fatal(err)
@@ -81,6 +99,10 @@ func BenchmarkTerminalScrolling(b *testing.B) {
 				}
 			}
 			b.StopTimer()
+			stats := term.glyphRenderer.Stats()
+			b.ReportMetric(float64(stats.MaskBytes)/(1<<20), "mask-MiB")
+			b.ReportMetric(float64(stats.PageBytes)/(1<<20), "page-MiB")
+			b.ReportMetric(float64(stats.VectorDraws)/float64(b.N), "vector-draws/frame")
 			runtime.GC()
 			var memory runtime.MemStats
 			runtime.ReadMemStats(&memory)
