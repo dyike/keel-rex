@@ -8,7 +8,7 @@
 keel run -- -dir /path/to/project
 ```
 
-Windows 在 PowerShell 中运行 `go run .`。需要 Go 1.26 和 [Windows 10 1809 或更新版本](https://learn.microsoft.com/en-us/windows/console/createpseudoconsole)；默认使用 `pwsh.exe`，未安装时依次选择 `powershell.exe`、`COMSPEC` 和 `cmd.exe`。后台服务使用 Windows 文件锁和独立进程，终端使用 ConPTY；界面加载 Segoe UI、Consolas 和可用的微软雅黑，缺失字体时使用 Go 字体。macOS 继续使用 `SHELL` 指定的登录 shell。
+Windows 在 PowerShell 中运行 `go run .`。需要 Go 1.26 和 [Windows 10 1809 或更新版本](https://learn.microsoft.com/en-us/windows/console/createpseudoconsole)；默认使用 `pwsh.exe`，未安装时依次选择 `powershell.exe`、`COMSPEC` 和 `cmd.exe`。后台服务使用 Windows 文件锁和独立进程，终端使用 ConPTY；界面加载 Segoe UI、Consolas 和可用的微软雅黑，缺失字体时使用 Go 字体。macOS 保留 `SHELL` 指定的自定义路径；当它为空、`/bin/bash` 或 `/bin/sh` 时，自动读取账号配置的登录 shell，避免 Finder 启动 App 时误用系统 bash。新会话的 `SHELL` 同步为实际选择的路径；已有会话继续保留原环境。
 
 ## 使用
 

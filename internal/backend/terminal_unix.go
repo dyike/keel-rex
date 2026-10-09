@@ -16,7 +16,7 @@ type unixTerminal struct {
 }
 
 func shellCommand() []string {
-	shell := os.Getenv("SHELL")
+	shell := defaultShell()
 	if shell == "" {
 		shell = "/bin/zsh"
 	}

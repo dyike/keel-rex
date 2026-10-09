@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -92,6 +93,9 @@ func newSessionWithOptions(options SessionOptions) (*session, error) {
 	s.title = s.program
 	s.cmd.Dir = dir
 	s.cmd.Env = append(os.Environ(), "TERM=xterm-256color", "COLORTERM=truecolor", "TERM_PROGRAM=RexKeel", "TERM_PROGRAM_VERSION=0.3.0")
+	if len(command) == 0 && runtime.GOOS != "windows" {
+		s.cmd.Env = append(s.cmd.Env, "SHELL="+shell)
+	}
 	m, e := startTerminal(s.cmd, 80, 24)
 	if e != nil {
 		s.emu.Close()
