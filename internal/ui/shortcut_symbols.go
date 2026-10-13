@@ -3,9 +3,9 @@ package ui
 import (
 	"image/color"
 
-	"gioui.org/f32"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
+	"github.com/dyike/keel/gio/f32"
+	"github.com/dyike/keel/gio/op/clip"
+	"github.com/dyike/keel/gio/op/paint"
 )
 
 // Keyboard symbols share an optical grid and a 1.3dp stroke at 12dp.

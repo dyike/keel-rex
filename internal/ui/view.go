@@ -2,7 +2,7 @@ package ui
 
 import (
 	"fmt"
-	"gioui.org/io/key"
+	"github.com/dyike/keel/gio/io/key"
 	"github.com/dyike/keel/ui/core"
 )
 

@@ -10,13 +10,13 @@ import (
 	"slices"
 	"testing"
 
-	"gioui.org/font/opentype"
-	"gioui.org/text"
 	uv "github.com/charmbracelet/ultraviolet"
+	"github.com/dyike/keel/gio/font/opentype"
+	"github.com/dyike/keel/gio/text"
+	gotext "github.com/dyike/keel/typesetting/font"
+	ot "github.com/dyike/keel/typesetting/font/opentype"
 	"github.com/dyike/keel/ui/theme"
 	"github.com/dyike/keel/ui/window"
-	gotext "github.com/go-text/typesetting/font"
-	ot "github.com/go-text/typesetting/font/opentype"
 	"golang.org/x/image/font/gofont/gomono"
 )
 

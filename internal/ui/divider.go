@@ -3,7 +3,7 @@ package ui
 import (
 	"fmt"
 
-	"gioui.org/io/pointer"
+	"github.com/dyike/keel/gio/io/pointer"
 	"github.com/dyike/keel/ui/el"
 )
 

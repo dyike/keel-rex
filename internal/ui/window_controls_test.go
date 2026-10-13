@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"gioui.org/f32"
-	"gioui.org/io/input"
-	"gioui.org/io/system"
-	"gioui.org/layout"
-	"gioui.org/op"
-	"gioui.org/unit"
+	"github.com/dyike/keel/gio/f32"
+	"github.com/dyike/keel/gio/io/input"
+	"github.com/dyike/keel/gio/io/system"
+	"github.com/dyike/keel/gio/layout"
+	"github.com/dyike/keel/gio/op"
+	"github.com/dyike/keel/gio/unit"
 	"github.com/dyike/keel/ui/el"
 	"github.com/dyike/keel/ui/window"
 )

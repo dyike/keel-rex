@@ -14,11 +14,11 @@ import (
 	"testing"
 	"time"
 
-	"gioui.org/gpu/headless"
-	"gioui.org/layout"
-	"gioui.org/op"
-	"gioui.org/unit"
 	uv "github.com/charmbracelet/ultraviolet"
+	"github.com/dyike/keel/gio/gpu/headless"
+	"github.com/dyike/keel/gio/layout"
+	"github.com/dyike/keel/gio/op"
+	"github.com/dyike/keel/gio/unit"
 )
 
 // Keep one renderer alive while every row changes, as it does during scrolling.

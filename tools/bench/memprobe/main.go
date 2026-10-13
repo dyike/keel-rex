@@ -13,12 +13,12 @@ import (
 	"runtime"
 	"strings"
 
-	giofont "gioui.org/font"
-	gioot "gioui.org/font/opentype"
-	"gioui.org/text"
 	"github.com/charmbracelet/x/vt"
-	"github.com/go-text/typesetting/font"
-	"github.com/go-text/typesetting/font/opentype"
+	giofont "github.com/dyike/keel/gio/font"
+	gioot "github.com/dyike/keel/gio/font/opentype"
+	"github.com/dyike/keel/gio/text"
+	"github.com/dyike/keel/typesetting/font"
+	"github.com/dyike/keel/typesetting/font/opentype"
 	"golang.org/x/image/math/fixed"
 )
 

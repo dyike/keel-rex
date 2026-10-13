@@ -13,7 +13,7 @@ func TestSessionServerHasNoUIDependencies(t *testing.T) {
 		t.Fatalf("inspect server dependencies: %v\n%s", err, output)
 	}
 	for dependency := range strings.FieldsSeq(string(output)) {
-		if strings.HasPrefix(dependency, "gioui.org") || strings.HasPrefix(dependency, "github.com/dyike/keel/ui") || dependency == "github.com/dyike/keel-rex/internal/ui" || dependency == "github.com/dyike/keel-rex/assets" {
+		if strings.HasPrefix(dependency, "gioui.org") || strings.HasPrefix(dependency, "github.com/dyike/keel/gio") || strings.HasPrefix(dependency, "github.com/dyike/keel/ui") || dependency == "github.com/dyike/keel-rex/internal/ui" || dependency == "github.com/dyike/keel-rex/assets" {
 			t.Fatalf("session server links UI dependency %s", dependency)
 		}
 	}

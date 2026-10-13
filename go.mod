@@ -3,15 +3,13 @@ module github.com/dyike/keel-rex
 go 1.26.1
 
 require (
-	gioui.org v0.10.3
 	github.com/charmbracelet/ultraviolet v0.0.0-20260303162955-0b88c25f3fff
 	github.com/charmbracelet/x/ansi v0.11.7
 	github.com/charmbracelet/x/conpty v0.2.0
 	github.com/charmbracelet/x/term v0.2.2
 	github.com/charmbracelet/x/vt v0.0.0-20261004011457-ad85c59fdf4e
 	github.com/creack/pty v1.1.24
-	github.com/dyike/keel v0.1.10-0.20261009092445-75619019c680
-	github.com/go-text/typesetting v0.3.5
+	github.com/dyike/keel v0.2.2
 	golang.org/x/image v0.46.0
 	golang.org/x/sys v0.48.0
 )
@@ -37,9 +35,11 @@ require (
 	github.com/tc-hib/winres v0.3.1 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	golang.org/x/exp/shiny v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
+	golang.org/x/mod v0.41.0 // indirect
 	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
+	golang.org/x/tools v0.49.0 // indirect
 )
 
 tool github.com/dyike/keel/cmd/keel

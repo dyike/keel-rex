@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"gioui.org/f32"
-	"gioui.org/io/clipboard"
-	"gioui.org/op"
+	"github.com/dyike/keel/gio/f32"
+	"github.com/dyike/keel/gio/io/clipboard"
+	"github.com/dyike/keel/gio/op"
 	"github.com/dyike/keel/ui/core"
 )
 

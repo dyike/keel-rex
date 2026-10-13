@@ -1,12 +1,12 @@
 package ui
 
 import (
-	"gioui.org/f32"
-	"gioui.org/io/input"
-	"gioui.org/io/pointer"
-	"gioui.org/layout"
-	"gioui.org/op"
-	"gioui.org/unit"
+	"github.com/dyike/keel/gio/f32"
+	"github.com/dyike/keel/gio/io/input"
+	"github.com/dyike/keel/gio/io/pointer"
+	"github.com/dyike/keel/gio/layout"
+	"github.com/dyike/keel/gio/op"
+	"github.com/dyike/keel/gio/unit"
 	"github.com/dyike/keel/ui/el"
 	"image"
 	"testing"

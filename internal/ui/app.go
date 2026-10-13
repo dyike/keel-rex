@@ -3,8 +3,8 @@ package ui
 
 import (
 	"fmt"
-	"gioui.org/op/clip"
 	"github.com/dyike/keel-rex/internal/backend"
+	"github.com/dyike/keel/gio/op/clip"
 	"github.com/dyike/keel/ui/core"
 	"github.com/dyike/keel/ui/el"
 	"github.com/dyike/keel/ui/window"

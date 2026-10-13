@@ -1,9 +1,9 @@
 package ui
 
 import (
-	"gioui.org/f32"
-	"gioui.org/io/key"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/dyike/keel/gio/f32"
+	"github.com/dyike/keel/gio/io/key"
 	"github.com/dyike/keel/ui/core"
 	"image"
 )

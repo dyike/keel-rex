@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"gioui.org/font"
-	"gioui.org/text"
 	uv "github.com/charmbracelet/ultraviolet"
+	"github.com/dyike/keel/gio/font"
+	"github.com/dyike/keel/gio/text"
 	"github.com/dyike/keel/ui/theme"
 	"github.com/dyike/keel/ui/window"
 	"golang.org/x/image/math/fixed"

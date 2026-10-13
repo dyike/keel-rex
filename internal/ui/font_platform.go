@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"gioui.org/font"
+	"github.com/dyike/keel/gio/font"
 )
 
 var uiFontFace, terminalFontFace = platformFontFamilies(runtime.GOOS)
