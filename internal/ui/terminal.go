@@ -21,12 +21,14 @@ import (
 	"io"
 	"math"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unicode"
 	"unicode/utf8"
 )
 
 type terminal struct {
+	visible                atomic.Bool // published by layout for the model observer
 	ime                    terminalIME
 	session                backend.Session
 	owner                  *app

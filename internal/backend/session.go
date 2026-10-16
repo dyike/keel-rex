@@ -113,6 +113,12 @@ func newSessionWithOptions(options SessionOptions) (*session, error) {
 		// lines in one go when it has them together.
 		chunks := make(chan []byte, 64)
 		free := make(chan []byte, 64)
+		readSize := 16 << 10
+		if runtime.GOOS == "darwin" {
+			// Darwin's PTY usually returns 1 KiB. Keeping 16 KiB for each
+			// queued read unnecessarily retains up to 1 MiB per session.
+			readSize = 4 << 10
+		}
 		go func() {
 			defer close(chunks)
 			for {
@@ -120,7 +126,7 @@ func newSessionWithOptions(options SessionOptions) (*session, error) {
 				select {
 				case b = <-free:
 				default:
-					b = make([]byte, 16<<10)
+					b = make([]byte, readSize)
 				}
 				n, e := m.Read(b[:cap(b)])
 				if n > 0 {

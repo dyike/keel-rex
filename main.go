@@ -6,10 +6,16 @@ import (
 	"github.com/dyike/keel-rex/internal/backend"
 	"github.com/dyike/keel-rex/internal/ui"
 	"log"
+	"os"
 	"runtime/debug"
 )
 
 func main() {
+	// A terminal retains fonts and scrollback for hours. Collect transient
+	// screen/transport data sooner, while respecting an explicit user setting.
+	if os.Getenv("GOGC") == "" {
+		debug.SetGCPercent(50)
+	}
 	options := ui.Options{}
 	flag.StringVar(&options.Directory, "dir", "", "Initial working directory")
 	flag.StringVar(&options.Screenshot, "screenshot", "", "Render native screenshot and exit")

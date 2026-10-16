@@ -69,6 +69,9 @@ func TestScrollbackMaxBytes(t *testing.T) {
 	for i := 0; i < 3000; i++ {
 		fmt.Fprintf(e, "line %05d \x1b[31mred\x1b[32mgreen\x1b[0m\r\n", i)
 	}
+	// Packing can still evict lines to meet the byte budget after Write
+	// returns. Observe one settled history, rather than mixing two lengths.
+	e.Scrollback().direct()()
 	n := e.ScrollbackLen()
 	if n < 50 || n > 400 {
 		t.Fatalf("%d lines kept under 20 KB", n)

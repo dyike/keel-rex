@@ -5,10 +5,14 @@ import (
 	"flag"
 	"github.com/dyike/keel-rex/internal/backend"
 	"log"
+	"os"
 	"runtime/debug"
 )
 
 func main() {
+	if os.Getenv("GOGC") == "" {
+		debug.SetGCPercent(50)
+	}
 	dir := flag.String("state-dir", "", "Session data directory")
 	end := flag.Bool("end-sessions", false, "End sessions and stop the service")
 	flag.Bool("server", true, "Run session service (accepted for desktop compatibility)")

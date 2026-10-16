@@ -9,7 +9,6 @@ import (
 	"github.com/dyike/keel/ui/el"
 	"github.com/dyike/keel/ui/window"
 	"image"
-	"image/color"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -154,7 +153,8 @@ func (p *pane) each(fn func(*pane)) {
 func (p *pane) close() {
 	p.each(func(p *pane) {
 		if p.term != nil {
-			p.term.glyphRenderer.Release()
+			p.term.visible.Store(false)
+			p.term.releasePaint()
 			p.term.session.Close()
 		}
 	})
@@ -272,7 +272,8 @@ func (a *app) close() {
 	for _, t := range a.tabs {
 		t.root.each(func(p *pane) {
 			if p.term != nil {
-				p.term.glyphRenderer.Release()
+				p.term.visible.Store(false)
+				p.term.releasePaint()
 				p.term.session.Detach()
 			}
 		})
@@ -312,6 +313,7 @@ func (a *app) codex() {
 func (a *app) Render(cx *el.Context) el.Element {
 	w, h := cx.ViewportSize()
 	a.shortcuts(cx)
+	a.syncTerminalVisibility()
 	// Activity, appearance and the saved layout are checked between frames:
 	// the window draws only when a check finds something to show.
 	cx.Poll("checks", 700*time.Millisecond, func() bool {
@@ -356,7 +358,17 @@ func (a *app) layout(cx *el.Context, root *el.DivEl, n *pane, x, y, w, h float32
 func (a *app) pane(cx *el.Context, p *pane, x, y, w, h float32) el.Element {
 	p.bounds = paneRect{x, y, w, h}
 	colors := a.colors()
-	root := el.Div().Absolute().Left(x).Top(y).W(el.Dp(w)).H(el.Dp(h)).Bg(colors.panel).Border(1, colors.border).TextColor(colors.text).Rounded(10).P(10).Gap(7)
+	// Keep border and content padding separate so each rounds to physical
+	// pixels exactly as Border(1).P(10) did, including fractional display scales.
+	root := el.Div().Grow().H(el.Dp(0)).TextColor(colors.text).P(10).Gap(7)
+	border := colors.border
+	if a.focused == p {
+		border = rgb(0x92b3ad)
+	}
+	card := el.Div().Absolute().Left(x).Top(y).W(el.Dp(w)).H(el.Dp(h)).Rounded(10).P(1).Decorate(func(gtx core.C, draw func()) {
+		paintPaneSurface(gtx, colors.panel, border)
+		draw()
+	}).Child(root)
 	name := "Shell"
 	icon := "fish"
 	if p.term != nil {
@@ -385,15 +397,12 @@ func (a *app) pane(cx *el.Context, p *pane, x, y, w, h float32) el.Element {
 		expandIcon, expandName = "restore", "Restore"
 	}
 	head.Child(tool("Split vertically", "split-v", func() { a.focusPane(p); a.split(true) }), tool("Split horizontally", "split-h", func() { a.focusPane(p); a.split(false) }), tool(expandName, expandIcon, func() { a.focusPane(p); a.tabs[a.active].zoom = !a.tabs[a.active].zoom }), tool("Close", "close", func() { a.requestClosePane(p) }))
-	if a.focused == p {
-		root.Border(1, rgb(0x92b3ad))
-	}
 	if p.attention {
 		head.Child(el.Div().Size(el.Dp(6)).Rounded(3).Bg(rgb(0xdc9b45)))
 	}
 	root.Child(head)
 	if p.term != nil {
-		frame := p.term.session.Snapshot(0, 0)
+		frame := p.term.session.State()
 		if frame.Exited {
 			root.Child(el.Div().Row().H(el.Dp(25)).NoShrink().Items(el.Center).Gap(8).Child(el.Text("Session ended · "+shortPath(frame.Dir)).TextSize(11).TextColor(colors.muted).Grow().MaxLines(1), el.Div().Role("button").Name("Restart ended session").Disabled(p.restarting).OnClick(func() { a.focusPane(p); a.restartFocused() }).Px(8).Py(3).Bg(colors.hover).Rounded(4).Child(el.Text("Restart").TextSize(11))))
 		}
@@ -403,7 +412,7 @@ func (a *app) pane(cx *el.Context, p *pane, x, y, w, h float32) el.Element {
 	} else {
 		root.Child(el.Text(p.err).TextSize(12).TextColor(red))
 	}
-	return root
+	return card
 }
 func shortPath(s string) string {
 	home, _ := os.UserHomeDir()
@@ -422,19 +431,13 @@ func (c *chrome) Layout(gtx core.C) core.D {
 	if sc == 0 {
 		sc = 1
 	}
-	w, h := float32(sz.X)/sc, float32(sz.Y)/sc
 	p := painter{gtx, sc}
 	radius := 0
 	if desktopChrome.trafficLights {
 		radius = int(16 * sc)
 	}
-	defer clip.RRect{Rect: image.Rectangle{Max: sz}, NE: radius, NW: radius, SE: radius, SW: radius}.Push(gtx.Ops).Pop()
 	colors := c.a.colors()
-	for y := float32(0); y < h; y++ {
-		t := y / h
-		mix := func(a, b uint8) uint8 { return uint8(float32(a)*(1-t) + float32(b)*t) }
-		p.rect(0, y, w, 1, 0, color.NRGBA{R: mix(colors.top.R, colors.bottom.R), G: mix(colors.top.G, colors.bottom.G), B: mix(colors.top.B, colors.bottom.B), A: 255})
-	}
+	paintChromeBackground(p, sz, radius, colors.top, colors.bottom)
 	a := c.a
 	left := desktopChrome.hostLeft
 	hostClip := clip.Rect(image.Rect(int(left*sc), 0, int((left+desktopChrome.hostWidth())*sc), int(44*sc))).Push(gtx.Ops)

@@ -178,7 +178,8 @@ func (a *app) openGit() {
 	a.split(false)
 	p := a.focused
 	if p.term != nil {
-		p.term.glyphRenderer.Release()
+		p.term.visible.Store(false)
+		p.term.releasePaint()
 		p.term.session.Close()
 		p.term = nil
 	}

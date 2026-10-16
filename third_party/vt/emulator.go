@@ -57,8 +57,9 @@ type Emulator struct {
 	grapheme []byte
 
 	// The ANSI parser to use.
-	parser *ansi.Parser
-	cb     Callbacks
+	parser         *ansi.Parser
+	parserDataSize int
+	cb             Callbacks
 
 	// The terminal's icon name and title.
 	iconName, title string
@@ -99,7 +100,8 @@ func NewEmulator(w, h int) *Emulator {
 	t.scrs[1].cb = &t.cb
 	t.parser = ansi.NewParser()
 	t.parser.SetParamsSize(parser.MaxParamsSize)
-	t.parser.SetDataSize(1024 * 1024 * 4) // 4MB data buffer
+	t.parserDataSize = initialParserDataSize
+	t.parser.SetDataSize(t.parserDataSize)
 	t.parser.SetHandler(ansi.Handler{
 		Print:     t.handlePrint,
 		Execute:   t.handleControl,
@@ -304,6 +306,7 @@ func (e *Emulator) Write(p []byte) (n int, err error) {
 				continue
 			}
 		}
+		e.growParserData(p[i])
 		e.parser.Advance(p[i])
 		i++
 	}

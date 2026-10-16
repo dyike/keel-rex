@@ -44,9 +44,6 @@ type Scrollback struct {
 	skipped  int       // of those, how many were dropped meanwhile
 	epoch    int       // bumped by Clear, so a pack in flight is dropped
 
-	// styles holds the links of the lines' runs.
-	styles styleTable
-
 	// chunk is the block that the text of the next lines goes into; only the
 	// packing goroutine touches it.
 	chunk []byte
@@ -71,6 +68,7 @@ type packedLine struct {
 	widths []uint8 // width of each cell; nil when every cell is 1 column wide
 	runs   []styleRun
 	extra  []styleEntry // styles not in the table
+	links  []uv.Link    // owned by this line, released when it is evicted
 	cells  int
 }
 
@@ -85,7 +83,7 @@ type styleRun struct {
 	fgKind, bgKind   uint8
 	ulKind           uint8
 	attrs, underline uint8
-	link             uint32 // index+1 in the scrollback's links; 0 for none
+	link             uint32 // index+1 in the line's links; 0 for none
 	extra            uint32
 }
 
@@ -146,49 +144,35 @@ func unpackColor(kind uint8, v uint32) color.Color {
 	return nil
 }
 
-// styleTable holds the links of a scrollback's runs, once each.
-type styleTable struct {
-	mu    sync.RWMutex
-	links []uv.Link
-	ids   map[uv.Link]uint32
-}
-
-func (t *styleTable) linkID(l uv.Link) uint32 {
+func (p *packedLine) linkID(l uv.Link) uint32 {
 	if l == (uv.Link{}) {
 		return 0
 	}
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	id, ok := t.ids[l]
-	if !ok {
-		if t.ids == nil {
-			t.ids = map[uv.Link]uint32{}
+	for i, prior := range p.links {
+		if prior == l {
+			return uint32(i + 1)
 		}
-		t.links = append(t.links, l)
-		id = uint32(len(t.links))
-		t.ids[l] = id
 	}
-	return id
+	p.links = append(p.links, l)
+	return uint32(len(p.links))
 }
 
-func (t *styleTable) link(id uint32) uv.Link {
+func (p *packedLine) link(id uint32) uv.Link {
 	if id == 0 {
 		return uv.Link{}
 	}
-	t.mu.RLock()
-	defer t.mu.RUnlock()
-	return t.links[id-1]
+	return p.links[id-1]
 }
 
 // addRun adds to p a run from cell start in e.
-func (t *styleTable) addRun(p *packedLine, start int, e styleEntry) {
+func (p *packedLine) addRun(start int, e styleEntry) {
 	r := styleRun{start: uint32(start), attrs: e.style.Attrs, underline: uint8(e.style.Underline)}
 	var ok1, ok2, ok3 bool
 	r.fgKind, r.fg, ok1 = packColor(e.style.Fg)
 	r.bgKind, r.bg, ok2 = packColor(e.style.Bg)
 	r.ulKind, r.ul, ok3 = packColor(e.style.UnderlineColor)
 	if ok1 && ok2 && ok3 {
-		r.link = t.linkID(e.link)
+		r.link = p.linkID(e.link)
 	} else {
 		p.extra = append(p.extra, e)
 		r.extra = uint32(len(p.extra))
@@ -197,13 +181,13 @@ func (t *styleTable) addRun(p *packedLine, start int, e styleEntry) {
 }
 
 // style returns the style of run r of p.
-func (t *styleTable) style(p *packedLine, r styleRun) styleEntry {
+func (p *packedLine) style(r styleRun) styleEntry {
 	if r.extra != 0 {
 		return p.extra[r.extra-1]
 	}
 	return styleEntry{
 		style: uv.Style{Fg: unpackColor(r.fgKind, r.fg), Bg: unpackColor(r.bgKind, r.bg), UnderlineColor: unpackColor(r.ulKind, r.ul), Attrs: r.attrs, Underline: uv.Underline(r.underline)},
-		link:  t.link(r.link),
+		link:  p.link(r.link),
 	}
 }
 
@@ -242,6 +226,7 @@ func (s *Scrollback) Adopt(line uv.Line) {
 		if s.n > 0 {
 			s.dropOldest()
 		} else if len(s.pending) > 0 {
+			s.pending[0] = nil
 			s.pending = s.pending[1:]
 			s.evicted++
 			if s.skipped < s.inflight {
@@ -267,6 +252,7 @@ func (s *Scrollback) Blank(width int) uv.Line {
 		s.mu.Lock()
 		for len(s.free) > 0 {
 			l := s.free[len(s.free)-1]
+			s.free[len(s.free)-1] = nil
 			s.free = s.free[:len(s.free)-1]
 			if len(l) == width {
 				s.mu.Unlock()
@@ -294,6 +280,7 @@ func (s *Scrollback) work() {
 		s.inflight, s.skipped = len(batch), 0
 		s.mu.Unlock()
 
+		clear(packed)
 		packed = packed[:0]
 		for _, l := range batch {
 			packed = append(packed, s.pack(l))
@@ -302,11 +289,16 @@ func (s *Scrollback) work() {
 		s.mu.Lock()
 		if s.epoch == epoch {
 			skip := s.skipped
-			s.pending = append(s.pending[:0], s.pending[len(batch)-skip:]...)
+			n := copy(s.pending, s.pending[len(batch)-skip:])
+			clear(s.pending[n:])
+			s.pending = s.pending[:n]
 			for _, p := range packed[skip:] {
 				s.appendRing(p)
 			}
 			if len(s.free) < 64 {
+				for _, line := range batch {
+					clear(line)
+				}
 				s.free = append(s.free, batch[:min(len(batch), 64-len(s.free))]...)
 			}
 		}
@@ -360,7 +352,16 @@ func (s *Scrollback) dropOldest() {
 
 // size is about how many bytes p holds.
 func (p *packedLine) size() int {
-	return 96 + len(p.text) + len(p.sizes) + len(p.widths) + 28*len(p.runs) + 96*len(p.extra)
+	n := int(unsafe.Sizeof(*p)) + len(p.text) + cap(p.sizes) + cap(p.widths) +
+		int(unsafe.Sizeof(styleRun{}))*cap(p.runs) + int(unsafe.Sizeof(styleEntry{}))*cap(p.extra) +
+		int(unsafe.Sizeof(uv.Link{}))*cap(p.links)
+	for _, link := range p.links {
+		n += len(link.URL) + len(link.Params)
+	}
+	for _, extra := range p.extra {
+		n += len(extra.link.URL) + len(extra.link.Params)
+	}
+	return n
 }
 
 // SetMaxBytes bounds the memory of the packed lines too, besides their
@@ -407,7 +408,7 @@ func (s *Scrollback) pack(line uv.Line) packedLine {
 	buf := s.chunk
 	prev := &line[0]
 	if !plainStyle(&prev.Style) || prev.Link != (uv.Link{}) {
-		s.styles.addRun(&p, 0, styleEntry{prev.Style, prev.Link})
+		p.addRun(0, styleEntry{prev.Style, prev.Link})
 	}
 	for i := range line {
 		c := &line[i]
@@ -432,7 +433,7 @@ func (s *Scrollback) pack(line uv.Line) packedLine {
 			buf = append(buf, content...)
 		}
 		if i > 0 && (!sameStyle(&c.Style, &prev.Style) || !sameLink(&c.Link, &prev.Link)) {
-			s.styles.addRun(&p, i, styleEntry{c.Style, c.Link})
+			p.addRun(i, styleEntry{c.Style, c.Link})
 		}
 		prev = c
 	}
@@ -480,13 +481,13 @@ func sameLink(a, b *uv.Link) bool {
 }
 
 // unpack appends the cells of p to dst.
-func (p *packedLine) unpack(dst uv.Line, styles *styleTable) uv.Line {
+func (p *packedLine) unpack(dst uv.Line) uv.Line {
 	off, run := 0, 0 // cells before the first run have no style
 	var style uv.Style
 	var link uv.Link
 	for i := 0; i < p.cells; i++ {
 		if run < len(p.runs) && int(p.runs[run].start) == i {
-			e := styles.style(p, p.runs[run])
+			e := p.style(p.runs[run])
 			style, link = e.style, e.link
 			run++
 		}
@@ -513,9 +514,11 @@ func (s *Scrollback) direct() (done func()) {
 	}
 	for len(s.pending) > 0 {
 		l := s.pending[0]
+		s.pending[0] = nil
 		s.pending = s.pending[1:]
 		s.appendRing(s.pack(l))
 		if len(s.free) < 64 {
+			clear(l)
 			s.free = append(s.free, l)
 		}
 	}
@@ -541,7 +544,7 @@ func (s *Scrollback) appendText(text []byte, style uv.Style, link uv.Link) {
 		s.chunk = append(s.chunk, text...)
 		p.text = unsafe.String(&s.chunk[start], len(text))
 		if !plainStyle(&style) || len(link.URL)|len(link.Params) != 0 {
-			s.styles.addRun(&p, 0, styleEntry{style, link})
+			p.addRun(0, styleEntry{style, link})
 		}
 	}
 	s.appendRing(p)
@@ -658,7 +661,7 @@ func (s *Scrollback) line(index int) uv.Line {
 		return append(uv.Line(nil), trimmed(s.pending[index-s.n])...)
 	}
 	p := s.at(index)
-	return p.unpack(make(uv.Line, 0, p.cells), &s.styles)
+	return p.unpack(make(uv.Line, 0, p.cells))
 }
 
 // Lines returns all lines in the scrollback buffer.
@@ -685,9 +688,7 @@ func (s *Scrollback) Clear() {
 	defer s.mu.Unlock()
 	s.evicted += s.n + len(s.pending)
 	s.ring, s.head, s.n, s.pending, s.bytes = nil, 0, 0, nil, 0
-	s.styles.mu.Lock()
-	s.styles.links, s.styles.ids = nil, nil
-	s.styles.mu.Unlock()
+	s.free, s.cachedLine = nil, nil
 	s.epoch++
 	s.cached = -1
 }
@@ -724,7 +725,7 @@ func (s *Scrollback) cellAt(x, y int) *uv.Cell {
 		if y >= s.n { // not packed yet: read as if it were
 			s.cachedLine = append(s.cachedLine[:0], trimmed(s.pending[y-s.n])...)
 		} else {
-			s.cachedLine = s.at(y).unpack(s.cachedLine[:0], &s.styles)
+			s.cachedLine = s.at(y).unpack(s.cachedLine[:0])
 		}
 		s.cached = abs
 	}

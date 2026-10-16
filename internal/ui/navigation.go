@@ -25,7 +25,7 @@ func (a *app) focusPane(p *pane) {
 	p.attention = false
 	if p.term != nil {
 		p.term.initialFocus = true
-		p.seenBells = p.term.session.Snapshot(0, 0).Bells
+		p.seenBells = p.term.session.State().Bells
 	}
 }
 func (a *app) cycleTab(delta int) { a.activate((a.active + delta + len(a.tabs)) % len(a.tabs)) }
@@ -149,7 +149,8 @@ func (a *app) restartFocused() {
 			a.notice = "Could not restart session: " + err.Error()
 			return
 		}
-		p.term.glyphRenderer.Release()
+		p.term.visible.Store(false)
+		p.term.releasePaint()
 		p.term.session.Close()
 		fresh := newPane(a, dir)
 		p.term, p.err = fresh.term, fresh.err
@@ -231,7 +232,7 @@ func (a *app) checkActivity() bool {
 			if p.term == nil {
 				return
 			}
-			f := p.term.session.Snapshot(0, 0)
+			f := p.term.session.State()
 			visible := p == a.focused && (a.window == nil || a.window.Focused())
 			attention := p.attention
 			if !visible && (f.Bells > p.seenBells || p.lastProgram != "" && !backend.IsShellProgram(p.lastProgram) && p.lastProgram != f.Program && backend.IsShellProgram(f.Program)) {
