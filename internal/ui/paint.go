@@ -3,7 +3,6 @@ package ui
 import (
 	"github.com/dyike/keel/gio/f32"
 	"github.com/dyike/keel/gio/font"
-	"github.com/dyike/keel/gio/op"
 	"github.com/dyike/keel/gio/op/clip"
 	"github.com/dyike/keel/gio/op/paint"
 	"github.com/dyike/keel/gio/text"
@@ -56,15 +55,9 @@ func (p painter) label(s string, x, y, size float32, c color.NRGBA, mono, bold b
 	if len(gs) == 0 {
 		return 0
 	}
-	tr := op.Affine(f32.AffineId().Offset(f32.Pt(x*p.scale, y*p.scale))).Push(p.gtx.Ops)
-	paint.ColorOp{Color: c}.Add(p.gtx.Ops)
-	shape := clip.Outline{Path: sh.Shape(gs)}.Op().Push(p.gtx.Ops)
-	paint.PaintOp{}.Add(p.gtx.Ops)
-	shape.Pop()
-	if bitmap := sh.Bitmaps(gs); bitmap != (op.CallOp{}) {
-		bitmap.Add(p.gtx.Ops)
-	}
-	tr.Pop()
+	// Use the same platform text cache as terminal rows and el labels. Calling
+	// Shape directly bypasses CoreText and retains separate vector coverage.
+	theme.PaintGlyphs(p.gtx.Ops, sh, gs, c, f32.Pt(x*p.scale, y*p.scale))
 	return float32(gs[len(gs)-1].X+gs[len(gs)-1].Advance) / 64 / p.scale
 }
 

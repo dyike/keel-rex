@@ -139,7 +139,7 @@ go run . -end-sessions
 
 ## 开发与验证
 
-需要 Go 1.26；macOS 还需要 Xcode Command Line Tools。当前用 `go.mod` 的 `replace` 指向同级 `../keel`，验证尚未发布的小数基线绘制优化，构建需要该本地仓库；正式依赖版本仍为 v0.1.9。macOS 的 `keel run` 使用带图标资源的临时应用包，退出时清理；热重载和 `-watch=false` 使用同一启动方式。
+需要 Go 1.26；macOS 还需要 Xcode Command Line Tools。Keel 依赖固定为正式发布的 v0.3.2，构建不需要同级 Keel 仓库。macOS 的 `keel run` 使用带图标资源的临时应用包，退出时清理；热重载和 `-watch=false` 使用同一启动方式。
 
 `go tool keel` 使用 `go.mod` 固定的 CLI 版本。本地修改 Keel CLI 后，在 Keel 仓库执行 `go install ./cmd/keel`，再在本项目运行 `keel run`。
 

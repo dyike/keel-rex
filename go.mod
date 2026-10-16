@@ -9,7 +9,7 @@ require (
 	github.com/charmbracelet/x/term v0.2.2
 	github.com/charmbracelet/x/vt v0.0.0-20261004011457-ad85c59fdf4e
 	github.com/creack/pty v1.1.24
-	github.com/dyike/keel v0.3.1
+	github.com/dyike/keel v0.3.2
 	golang.org/x/image v0.46.0
 	golang.org/x/sys v0.48.0
 )

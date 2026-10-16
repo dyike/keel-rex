@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/dyike/keel/gio/font"
 )
@@ -15,12 +16,23 @@ func platformFontFamilies(platform string) (font.Typeface, font.Typeface) {
 	case "darwin":
 		// An explicit CJK family keeps normal and bold text out of incomplete
 		// generic fallback faces. All of these families ship with macOS.
-		return "Helvetica Neue, PingFang SC, Hiragino Sans GB, Heiti SC", "Menlo, PingFang SC, Hiragino Sans GB, Heiti SC"
+		return darwinFontFamilies("PingFang SC")
 	case "windows":
 		return "Segoe UI, Microsoft YaHei, Microsoft YaHei UI, SimSun", "Consolas, Microsoft YaHei, Microsoft YaHei UI, SimSun"
 	default:
 		return "Go", "Go Mono"
 	}
+}
+
+func darwinFontFamilies(primary string) (font.Typeface, font.Typeface) {
+	families := []string{primary}
+	for _, family := range []string{"PingFang SC", "Hiragino Sans GB", "Heiti SC", "Apple Symbols", "Apple Braille"} {
+		if family != primary {
+			families = append(families, family)
+		}
+	}
+	fallback := strings.Join(families, ", ")
+	return font.Typeface("Helvetica Neue, " + fallback), font.Typeface("Menlo, " + fallback)
 }
 
 func platformFontFiles() []string {
@@ -55,7 +67,9 @@ func darwinFontFiles(library string) []string {
 		}
 		return false
 	}
-	for _, name := range []string{"Menlo.ttc", "HelveticaNeue.ttc"} {
+	// The system font scanner can omit the Braille family used by npm's
+	// spinner. Register these small symbol fonts explicitly, like the CJK face.
+	for _, name := range []string{"Menlo.ttc", "HelveticaNeue.ttc", "Apple Symbols.ttf", "Apple Braille.ttf"} {
 		add(filepath.Join(library, "Fonts", name))
 	}
 	for _, name := range []string{"PingFang.ttc", "Supplemental/PingFang.ttc"} {

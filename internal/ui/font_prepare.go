@@ -14,6 +14,9 @@ import (
 // frame. Windows text fonts need their legacy bitmap strikes disabled: Gio
 // skips BlackAndWhite bitmaps, even when the glyph also has a usable outline.
 func prepareAppFonts(platform string, paths []string) (func() error, error) {
+	if platform == "darwin" {
+		return prepareDarwinAppFonts(paths)
+	}
 	keep := keepAppFont
 	if platform != "windows" {
 		set, err := theme.PrepareFontFiles(keep, paths...)
