@@ -39,6 +39,12 @@ def wait_enabled(text):
   if any(e.get('name')==text and not e.get('disabled') for e in r['elements']): return
   time.sleep(.05)
  raise AssertionError('Not enabled: '+text)
+def wait_absent(text):
+ for _ in range(100):
+  r=rpc('snapshot')
+  if not match(r,text): return
+  time.sleep(.05)
+ raise AssertionError('Still visible: '+text)
 try:
  initial=rpc('snapshot');print('initial tabs',len(match(initial,'Terminal tab')))
  shell=Path(os.environ.get('SHELL','/bin/zsh')).name
@@ -61,7 +67,7 @@ try:
  r=press('mod+w');rpc('click',text='End session');print('PASS running-program confirmation')
  # Locate text in actual scrollback, including wide characters.
  rpc('type',text="printf 'SEARCH_中文_%s\\n' TARGET; for i in {1..90}; do echo row-$i; done");press('enter');time.sleep(.6)
- press('mod+f');rpc('type',text='SEARCH_中文_TARGET');press('enter');r=rpc('wait_for',text='SEARCH_中文_TARGET');assert not match(r,'Find text');screenshot('gorex-search');print('PASS history search with wide Unicode')
+ press('mod+f');rpc('type',text='SEARCH_中文_TARGET');press('enter');wait_absent('Find text');rpc('wait_for',text='SEARCH_中文_TARGET');screenshot('gorex-search');print('PASS history search with wide Unicode')
  # Ensure Git rows remain single-line and staging really modifies the temp repo.
  tmp=str(work/'git-project');os.makedirs(tmp)
  subprocess.run(['git','init','-q',tmp],check=True)
