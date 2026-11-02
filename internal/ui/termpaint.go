@@ -131,12 +131,15 @@ func cellColors(c *uv.Cell, key rowKey, selected bool) (fg, bg color.NRGBA) {
 			fg = readableDefaultForeground(key.fg, bg)
 		}
 	}
-	if key.adaptCodex {
+	if c.Style.Attrs&(uv.AttrFaint|uv.AttrConceal) == 0 {
 		background := bg
 		if background.A == 0 {
 			background = key.panel
 		}
-		fg = readableCodexForeground(fg, background)
+		// Equal foreground/background can intentionally hide text or draw blocks.
+		if fg != background {
+			fg = readableTerminalForeground(fg, background)
+		}
 	}
 	return fg, bg
 }

@@ -53,9 +53,9 @@ func codexBackground(bg, panel color.NRGBA) color.NRGBA {
 	return rgb(0xe8ebed)
 }
 
-// Keep hue while giving cached Codex footer colors enough contrast on the
-// current surface. Other terminal programs retain their exact ANSI colors.
-func readableCodexForeground(fg, bg color.NRGBA) color.NRGBA {
+// Keep hue while making terminal text readable on its final background.
+// This only affects rendering; stored terminal colors remain unchanged.
+func readableTerminalForeground(fg, bg color.NRGBA) color.NRGBA {
 	if bg.A != 255 || contrast(fg, bg) >= 4.5 {
 		return fg
 	}

@@ -31,25 +31,11 @@ func (c cellPainter) Layout(gtx core.C) core.D {
 		for x := 0; x < t.cols; x++ {
 			i := y*t.cols + x
 			cell := t.cells[i]
-			fg, bg := t.owner.colors().text, color.NRGBA{}
-			if cell.Style.Fg != nil {
-				fg = color.NRGBAModel.Convert(cell.Style.Fg).(color.NRGBA)
+			selection := rgb(0xd6e4fa)
+			if t.owner.prefs.Appearance == "dark" {
+				selection = rgb(0x394c65)
 			}
-			if cell.Style.Bg != nil {
-				bg = color.NRGBAModel.Convert(cell.Style.Bg).(color.NRGBA)
-				if cell.Style.Fg == nil {
-					fg = readableDefaultForeground(fg, bg)
-				}
-			}
-			if cell.Style.Attrs&uv.AttrReverse != 0 {
-				if bg.A == 0 {
-					bg = t.owner.colors().panel
-				}
-				fg, bg = bg, fg
-			}
-			if (t.hasSelection || hi > lo) && i >= lo && i <= hi {
-				bg = rgb(0xd6e4fa)
-			}
+			fg, bg := cellColors(&cell, rowKey{fg: t.owner.colors().text, panel: t.owner.colors().panel, selection: selection}, (t.hasSelection || hi > lo) && i >= lo && i <= hi)
 			xx, yy := float32(x)*cw, float32(y)*ch
 			if bg.A != 0 {
 				p.rect(xx, yy, cw*float32(max(1, cell.Width)), ch, 0, bg)
@@ -103,7 +89,7 @@ func TestTerminalThemeSwitchKeepsInputReadable(t *testing.T) {
 		keep(t, path)
 	}
 	// Programs retain control over explicitly colored text, including dim text.
-	cell := uv.Cell{Style: uv.Style{Fg: rgb(0x444444), Bg: rgb(0x373c42)}}
+	cell := uv.Cell{Style: uv.Style{Fg: rgb(0x444444), Bg: rgb(0x373c42), Attrs: uv.AttrFaint}}
 	fg, bg := cellColors(&cell, rowKey{fg: ink}, false)
 	if fg != rgb(0x444444) || bg != rgb(0x373c42) {
 		t.Fatal("overrode explicit ANSI colors")
