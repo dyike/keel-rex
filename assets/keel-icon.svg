@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>Keel — terminal and sail</title>
+  <defs>
+    <linearGradient id="surface" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#33464f"/>
+      <stop offset="1" stop-color="#17252e"/>
+    </linearGradient>
+  </defs>
+  <path d="M268 64 H756 C892 64 960 132 960 268 V756 C960 892 892 960 756 960 H268 C132 960 64 892 64 756 V268 C64 132 132 64 268 64 Z" fill="url(#surface)"/>
+  <path d="M270 72 H754 C886 72 952 138 952 270 V754 C952 886 886 952 754 952 H270 C138 952 72 886 72 754 V270 C72 138 138 72 270 72 Z" fill="none" stroke="#57717a" stroke-width="4"/>
+  <!-- The upright is a mast; the two separated sails form a K. -->
+  <path d="M292 280 Q292 264 308 264 H372 Q388 264 388 280 V744 Q388 760 372 760 H308 Q292 760 292 744 Z" fill="#f2f7f5"/>
+  <path d="M434 484 L672 270 Q679 264 690 264 H760 L526 484 Z" fill="#78e6ce"/>
+  <path d="M434 540 H526 L760 760 H648 Z" fill="#f2f7f5"/>
+</svg>

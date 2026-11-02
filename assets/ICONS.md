@@ -1,5 +1,12 @@
 # Interface icons
 
+The app icon is an original geometric K: a mast and two sails, with a terminal
+chevron silhouette. Ivory and mint on slate keep the mark legible at Dock sizes.
+Its editable source is `keel-icon.svg`; run `go run ./tools/appicon` from the
+repository root to regenerate the 1024px `keel-icon.png` used by `keel.json`.
+The transparent outer margin and rounded tile are included, so packaging uses
+`icon_mask: none`. This app mark does not use the upstream Rex artwork.
+
 Source: https://github.com/egoist/gorex/tree/97d798d44bfff886e9aad6883186295d8bb97686/assets
 
 Controls use gorex’s Lucide SVGs (24-unit viewBox, 2-unit rounded strokes).

@@ -3,7 +3,7 @@
   "appid": "com.dyike.keel.rex",
   "version": "0.3.3",
   "binary": "rex-keel",
-  "icon": "assets/rex-icon.png",
+  "icon": "assets/keel-icon.png",
   "icon_mask": "none",
   "main": "."
 }
