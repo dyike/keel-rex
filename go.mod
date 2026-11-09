@@ -9,7 +9,9 @@ require (
 	github.com/charmbracelet/x/term v0.2.2
 	github.com/charmbracelet/x/vt v0.0.0-20261004011457-ad85c59fdf4e
 	github.com/creack/pty v1.1.24
-	github.com/dyike/keel v0.3.2
+	github.com/dyike/keel v0.4.3
+	github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c
+	github.com/srwiley/rasterx v0.0.0-20210519020934-456a8d69b780
 	golang.org/x/image v0.46.0
 	golang.org/x/sys v0.48.0
 )
@@ -30,8 +32,6 @@ require (
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
-	github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c // indirect
-	github.com/srwiley/rasterx v0.0.0-20210519020934-456a8d69b780 // indirect
 	github.com/tc-hib/winres v0.3.1 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	golang.org/x/exp/shiny v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
