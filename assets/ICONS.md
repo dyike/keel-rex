@@ -1,11 +1,14 @@
 # Interface icons
 
-The app icon is an original geometric K: a mast and two sails, with a terminal
-chevron silhouette. Ivory and mint on slate keep the mark legible at Dock sizes.
-Its editable source is `keel-icon.svg`; run `go run ./tools/appicon` from the
-repository root to regenerate the 1024px `keel-icon.png` used by `keel.json`.
-The transparent outer margin and rounded tile are included, so packaging uses
-`icon_mask: none`. This app mark does not use the upstream Rex artwork.
+The packaged app icon is `rex-mascot-icon.png`: an original cartoon mint
+T-rex holding a terminal prompt, with slate, ivory and muted lavender colors.
+It was generated with the built-in image generation tool. The transparent
+outer margin and rounded tile are included, so `keel.json` uses `icon_mask: none`.
+The generation brief is preserved in `rex-mascot-icon.prompt.txt`.
+
+The previous geometric K remains in `keel-icon.svg` and `keel-icon.png`.
+`go run ./tools/appicon` regenerates that legacy mark only; it does not overwrite
+the current mascot. Neither original app mark uses the upstream Rex artwork.
 
 Source: https://github.com/egoist/gorex/tree/97d798d44bfff886e9aad6883186295d8bb97686/assets
 
