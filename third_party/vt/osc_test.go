@@ -1,6 +1,50 @@
 package vt
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
+
+func TestOSCTitlePreservesUTF8AcrossWrites(t *testing.T) {
+	const title = "在 sandbox-tool 设计接口 Ü \U0001f71c"
+
+	for _, end := range []struct{ name, bytes string }{
+		{"BEL", "\a"},
+		{"escaped ST", "\x1b\\"},
+		{"single-byte ST", "\x9c"},
+	} {
+		t.Run(end.name, func(t *testing.T) {
+			term := newTestTerminal(t, 80, 4)
+			var titles []string
+			term.SetCallbacks(Callbacks{Title: func(title string) { titles = append(titles, title) }})
+			term.WriteString("\x1b[?1049h")
+			sequence := "\x1b]0;" + title + end.bytes + "OK"
+			for i := range len(sequence) {
+				term.WriteString(sequence[i : i+1])
+			}
+			if len(titles) != 1 || titles[0] != title {
+				t.Fatalf("received titles %q, want [%q]", titles, title)
+			}
+			if got := strings.TrimSpace(term.String()); got != "OK" {
+				t.Errorf("screen = %q, want %q", got, "OK")
+			}
+		})
+	}
+}
+
+func TestOSCIncompleteUTF8DoesNotConsumeST(t *testing.T) {
+	term := newTestTerminal(t, 80, 4)
+	var title string
+	term.SetCallbacks(Callbacks{Title: func(value string) { title = value }})
+	term.WriteString("\x1b]0;prefix\xe5\x9c")
+	term.WriteString("OK")
+	if title != "prefix\xe5" {
+		t.Errorf("title = %q, want %q", title, "prefix\xe5")
+	}
+	if got := strings.TrimSpace(term.String()); got != "OK" {
+		t.Errorf("screen = %q, want %q", got, "OK")
+	}
+}
 
 // OSC 8 wire format per https://gist.github.com/egmontkov/eb6100b9 is
 // ESC ] 8 ; <params> ; <uri> ST. handleHyperlink must store the

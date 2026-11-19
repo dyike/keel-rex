@@ -3,6 +3,7 @@ package vt
 import (
 	"image/color"
 	"io"
+	"unicode/utf8"
 
 	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/charmbracelet/ultraviolet/screen"
@@ -59,6 +60,8 @@ type Emulator struct {
 	// The ANSI parser to use.
 	parser         *ansi.Parser
 	parserDataSize int
+	oscUTF8        [utf8.UTFMax]byte
+	oscUTF8Len     int
 	cb             Callbacks
 
 	// The terminal's icon name and title.
@@ -306,8 +309,7 @@ func (e *Emulator) Write(p []byte) (n int, err error) {
 				continue
 			}
 		}
-		e.growParserData(p[i])
-		e.parser.Advance(p[i])
+		e.advanceParser(p[i])
 		i++
 	}
 	// Flush the last cluster once the whole slice is written. Every sequence

@@ -13,7 +13,8 @@ func TestParserDataGrowsAcrossWritesWithoutTruncatingOSC(t *testing.T) {
 	if e.parserDataSize != initialParserDataSize {
 		t.Fatalf("idle parser reserves %d bytes", e.parserDataSize)
 	}
-	want := strings.Repeat("title-中文-", 16000)
+	// Fill the first buffer just before the 0x9c continuation byte in 在.
+	want := strings.Repeat("x", initialParserDataSize-3) + "在" + strings.Repeat("title-中文-", 16000)
 	data := "\x1b]2;" + want + "\x1b\\OK"
 	for offset := 0; offset < len(data); offset += 7919 {
 		e.WriteString(data[offset:min(offset+7919, len(data))])
@@ -34,9 +35,13 @@ func TestParserDataKeepsExistingLimit(t *testing.T) {
 	defer e.Close()
 	var title string
 	e.SetCallbacks(Callbacks{Title: func(s string) { title = s }})
-	e.WriteString("\x1b]2;" + strings.Repeat("x", maxParserDataSize+1000) + "\aOK")
-	if len(title) != maxParserDataSize-2 || e.parserDataSize != maxParserDataSize {
+	want := strings.Repeat("x", maxParserDataSize-2)
+	e.WriteString("\x1b]2;" + want + "在\aOK")
+	if title != want || e.parserDataSize != maxParserDataSize {
 		t.Fatalf("OSC limit changed: title=%d, buffer=%d", len(title), e.parserDataSize)
+	}
+	if got := strings.TrimSpace(e.String()); got != "OK" {
+		t.Errorf("screen = %q, want %q", got, "OK")
 	}
 	e.WriteString("\x1b]2;short\a")
 	if title != "short" {
